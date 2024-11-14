@@ -1,12 +1,15 @@
 section .data 
 	format db "cucc: %d",10,0
 	format_print_elements db "the %d. element is: %d",10,0
+	vector_info db "size:  %d, capacity: %d",10,0
+	vector_element db "%d ",0
 	
 section .text
 	extern printf
 	extern vector_init
 	extern vector_destroy
 	extern vector_push_back
+	extern vector_pop_back
 	
 	global _start
 	
@@ -48,32 +51,25 @@ _main_loop_end:
 	pop esi		;restore esi
 	
 	;print vector
-	push esi	;save esi
-	push edi	;save edi
-	push ebx	;save ebx
-	mov esi, dword[ebp-16]	;size in esi
-	mov edi, 0
-	mov ebx, dword[ebp-4]	;data* in ebx
-_main_print_loop_start:
-	cmp esi, edi
-	jle _main_print_loop_end
-	
-	mov eax, dword[ebx]
+	lea eax, [ebp-16]
 	push eax
-	push edi
-	mov eax, format_print_elements
-	push eax
-	call printf
-	add esp, 12
+	call _print_vector
+	add esp, 4
 	
-	inc edi
-	add ebx, 4
-	jmp _main_print_loop_start
-
-_main_print_loop_end:
-	pop ebx		;restore ebx
-	pop edi		;resture edi
-	pop esi		;restore esi
+	lea eax, [ebp-16]
+	push eax
+	call vector_pop_back
+	call vector_pop_back
+	call vector_pop_back
+	call vector_pop_back
+	call vector_pop_back
+	pop eax
+	
+	;print vector
+	lea eax, [ebp-16]
+	push eax
+	call _print_vector
+	add esp, 4
 	
 	;destroy vector
 	lea eax, [ebp-16]
@@ -89,4 +85,59 @@ _main_print_loop_end:
 	xor ebx, ebx
 	mov eax, 1
 	int 80h
+	
+	
+_print_vector: 	;void _print_vector(vector*)
+	push ebp
+	mov ebp, esp
+	
+	mov ecx, dword [ebp+8]	;vector* in ecx
+	
+	push esi	;save esi
+	push ebx	;save ebx
+	
+	mov esi, dword[ecx]	;size in esi
+	mov ebx, dword[ecx+12]		;current element* in ebx
+	
+	;print size and capacity
+	mov eax, dword[ecx+4]
+	push eax
+	push esi
+	mov eax, vector_info
+	push eax
+	call printf
+	add esp, 12
+	
+	;print elements
+	
+_print_vector_loop_start:
+	cmp esi, 0
+	jle _print_vector_loop_end
+	
+	mov eax, dword[ebx]
+	push eax
+	mov eax, vector_element
+	push eax
+	call printf
+	add esp, 8
+	
+	add ebx, 4
+	dec esi
+	
+	jmp _print_vector_loop_start
+
+_print_vector_loop_end:
+	push 0
+	push 10
+	mov eax, esp
+	push eax
+	call printf
+	add esp,12
+
+	pop ebx	;restore ebx
+	pop esi		;restore esi
+	
+	mov esp, ebp
+	pop ebp
+	ret
 	

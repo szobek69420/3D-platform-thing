@@ -8,6 +8,7 @@
 
 section .data
 	format db "element size: %d",10,0
+	pop_error_message db "vector is empty bozo",10,0
 
 section .text
 	extern malloc
@@ -19,6 +20,7 @@ section .text
 	global vector_init
 	global vector_destroy
 	global vector_push_back
+	global vector_pop_back
 
 vector_init: ;vector vector_init(element_size)
 	push ebp
@@ -107,6 +109,49 @@ _push_back_no_realloc:
 	inc ecx
 	mov dword[eax],ecx
 	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+	
+vector_pop_back:	;void vector_pop_back(vector* borsodee)
+	push ebp
+	mov ebp, esp
+	
+	mov ecx, dword [ebp+8]	;vector* in ecx
+	
+	;check if size is zero
+	mov eax, dword[ecx]
+	cmp eax, 0
+	jg _pop_back_not_empty
+	
+	mov eax, pop_error_message
+	push eax
+	call printf
+	mov esp, ebp
+	pop ebp
+	ret
+	
+_pop_back_not_empty:
+	dec dword[ecx]
+	
+	mov eax, dword[ecx+4]
+	shr eax, 1
+	cmp eax, dword[ecx]
+	jl _pop_back_skip_realloc
+	cmp eax, 0
+	je _pop_back_skip_realloc
+	
+	mov dword[ecx+4], eax	;save new capacity
+	imul eax, dword[ecx+8]	;calculate new size
+	push eax
+	mov eax, dword[ecx+12]
+	push eax
+	call realloc
+	mov dword[ecx+12], eax
+	
+_pop_back_skip_realloc:
 	mov esp, ebp
 	pop ebp
 	ret
