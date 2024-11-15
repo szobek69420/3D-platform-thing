@@ -9,6 +9,7 @@
 section .data
 	format db "element size: %d",10,0
 	pop_error_message db "vector is empty bozo",10,0
+	at_error_message db "vector_at: %d is out of bounds",10,0
 
 section .text
 	extern malloc
@@ -16,14 +17,17 @@ section .text
 	extern free
 	extern printf
 	extern memcpy
+	extern memcmp
 
 	global vector_init			;vector vector_init(int element_size)
 	global vector_destroy		;void vector_destroy(vector*)
 	global vector_clear			;void vector_clear(vector*)
+	global vector_at			;<element>* vector_at(vector*, int index)
 	global vector_push_back	;void vector_push_back(vector*, <element> element)
 	global vector_pop_back		;void vector_pop_back(vector*)
 	global vector_insert		;void vector_insert(vector*, int index, <element> element)
 	global vector_remove_at	;void vector_remove_at(vector*, int index)
+	global vector_remove		;int vector_remove(vector*, <element> element)	removes the first matching element. removes 0 if no removal took place, 69 else
 
 vector_init: ;vector vector_init(element_size)
 	push ebp
@@ -92,6 +96,44 @@ vector_clear:	;void vector_clear(vector* pacalmaca)
 	pop ebp
 	ret
 	
+	
+vector_at:		;<element>* vector_at(vector*, int index)
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]		;vector* in eax
+	mov ecx, dword[eax+12]		;data* in ecx
+	mov edx, dword[ebp+12]		;index in edx
+	
+	;check if index is valid
+	cmp edx, 0
+	jl _at_index_invalid
+	cmp edx,dword[eax]
+	jge _at_index_invalid
+	jmp _at_index_test_done
+	
+_at_index_invalid:
+	push eax		;save eax
+	push ecx		;save ecx
+	push edx	;save edx
+	push edx
+	mov eax, at_error_message
+	push eax
+	call printf
+	add esp,8
+	pop edx		;restore edx
+	pop ecx		;restore ecx
+	pop eax		;restore eax
+	
+_at_index_test_done:
+	imul edx, dword[eax+8]
+	add ecx, edx					;<element>* in ecx
+	
+	mov eax, ecx
+	
+	mov esp, ebp
+	pop ebp
+	ret
 	
 vector_push_back:	;void vector_push_back(vector* robloxman, element _element) (element is pushed to the stack)
 	push ebp
@@ -333,4 +375,56 @@ _remove_at_index_valid:
 _remove_at_realloc_done:
 	mov esp, ebp
 	pop ebp
+	ret
+	
+	
+vector_remove:		;int vector_remove(vector*, <element> element)
+	push esi
+	push edi
+	push ebx
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+20]	;vector* in eax
+	push eax					;vector* at ebp-4
+	
+	mov esi, dword[eax]		;size in esi
+	mov edi, dword[eax+12]	;data* in edi 
+	mov ebx, dword[eax+8]		;element size in ebx
+	
+_remove_compare_loop_start:
+	cmp esi, 0
+	jle _remove_compare_loop_end
+	
+	push ebx
+	push edi
+	lea eax, [ebp+24]
+	push eax
+	call memcmp
+	add esp, 12
+	
+	;check if element is found
+	cmp eax, 0
+	jne _remove_compare_loop_condition_end
+	mov eax, dword[ebp-4]
+	mov ecx, dword[eax]		;size in ecx
+	sub ecx, esi				;index to delete in ecx
+	push ecx
+	push eax
+	call vector_remove_at
+	add esp, 8
+	jmp _remove_compare_loop_end
+	
+	
+_remove_compare_loop_condition_end:
+	dec esi
+	add edi, ebx
+	jmp _remove_compare_loop_start
+_remove_compare_loop_end:
+	
+	mov esp, ebp
+	pop ebp
+	pop ebx
+	pop edi
+	pop esi
 	ret

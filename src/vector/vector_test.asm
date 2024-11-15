@@ -9,10 +9,12 @@ section .text
 	extern vector_init
 	extern vector_destroy
 	extern vector_clear
+	extern vector_at
 	extern vector_push_back
 	extern vector_pop_back
 	extern vector_insert
 	extern vector_remove_at
+	extern vector_remove
 	
 	global _start
 	
@@ -71,6 +73,25 @@ _main_loop_end:
 	call _print_vector
 	add esp, 4
 	
+	;vector_at test
+	lea eax, [ebp-16]
+	push 5
+	push eax
+	call vector_at
+	mov dword[eax], -69
+	
+	mov dword[esp+4], -1
+	call vector_at
+	mov dword[esp+4],420
+	call vector_at
+	add esp,8
+	
+	;print vector
+	lea eax, [ebp-16]
+	push eax
+	call _print_vector
+	add esp, 4
+	
 	;insert test
 	lea eax, [ebp-16]
 	push 23
@@ -95,6 +116,13 @@ _main_loop_end:
 	mov dword[esp+4],0
 	call vector_remove_at
 	add esp,8
+	
+	;remove test
+	lea eax, [ebp-16]
+	push 4
+	push eax
+	call vector_remove
+	add esp, 8
 	
 	;print vector
 	lea eax, [ebp-16]
