@@ -23,6 +23,7 @@ section .text
 	global vector_push_back	;void vector_push_back(vector*, <element> element)
 	global vector_pop_back		;void vector_pop_back(vector*)
 	global vector_insert		;void vector_insert(vector*, int index, <element> element)
+	global vector_remove_at	;void vector_remove_at(vector*, int index)
 
 vector_init: ;vector vector_init(element_size)
 	push ebp
@@ -232,7 +233,7 @@ _insert_realloc_done:
 	
 	push edx		;size of copied region
 	push ecx			;src*
-	add ecx, 4
+	add ecx, dword[eax+8]
 	push ecx			;dst*
 	call memcpy
 	add esp, 12
@@ -255,6 +256,81 @@ _insert_realloc_done:
 	inc ecx
 	mov dword[eax], ecx
 	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+
+vector_remove_at:		;void vector_remove_at(vector*, int index)
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]	;vector* in eax
+	push eax					;vector* at ebp-4
+	
+	;check if index is valid
+	mov ecx, dword[ebp+12]
+	cmp ecx, dword[eax]
+	jge _remove_at_index_invalid
+	cmp ecx, 0
+	jl _remove_at_index_invalid	
+	jmp _remove_at_index_valid
+_remove_at_index_invalid:
+	mov esp, ebp
+	pop ebp
+	ret
+_remove_at_index_valid:
+
+	;calculate dst*
+	mov ecx, dword[ebp+12]		;index in ecx
+	imul ecx, dword[eax+8]
+	add ecx, dword[eax+12]
+	
+	;calculate copy size
+	mov edx, dword[eax]
+	sub edx, dword[ebp+12]
+	dec edx
+	imul edx, dword[eax+8]
+	
+	;relocate things
+	push edx		;push copy size
+	sub esp, 4		;alloc space for src*
+	push ecx			;push dst*
+	add ecx, dword[eax+8]
+	mov dword[esp+4], ecx		;push the real src*
+	call memcpy
+	add esp, 12
+	
+	;decrement size
+	mov eax, dword[ebp-4]
+	mov ecx, dword[eax]
+	dec ecx
+	mov dword[eax], ecx
+	
+	;check if realloc is necessary
+	mov ecx, dword[eax+4]
+	shr ecx, 1
+	cmp ecx, 0
+	je _remove_at_realloc_done
+	cmp ecx, dword[eax]
+	jl _remove_at_realloc_done
+	
+	;calculate new size
+	mov dword[eax+4], ecx		;save new capacity
+	imul ecx, dword[eax+8]
+	mov edx, dword[eax+12]
+	
+	push eax		;save vector*
+	push ecx
+	push edx
+	call realloc
+	add esp,8
+	pop ecx		;restore vector*
+	
+	mov dword[ecx+12],eax		;save new data*
+	
+_remove_at_realloc_done:
 	mov esp, ebp
 	pop ebp
 	ret
