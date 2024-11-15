@@ -8,8 +8,10 @@ section .text
 	extern printf
 	extern vector_init
 	extern vector_destroy
+	extern vector_clear
 	extern vector_push_back
 	extern vector_pop_back
+	extern vector_insert
 	
 	global _start
 	
@@ -23,7 +25,7 @@ _start:
 	
 	;init vector
 	push 4
-	lea eax, [esp+4]
+	lea eax, [ebp-16]
 	push eax ;push the vector* for the return
 	call vector_init
 	add esp, 8
@@ -60,10 +62,42 @@ _main_loop_end:
 	push eax
 	call vector_pop_back
 	call vector_pop_back
-	call vector_pop_back
-	call vector_pop_back
-	call vector_pop_back
 	pop eax
+	
+	;print vector
+	lea eax, [ebp-16]
+	push eax
+	call _print_vector
+	add esp, 4
+	
+	;insert test
+	lea eax, [ebp-16]
+	push 23
+	push 3
+	push eax
+	call vector_insert
+	add esp, 12
+	
+	;print vector
+	lea eax, [ebp-16]
+	push eax
+	call _print_vector
+	add esp, 4
+
+	
+	;clear vector
+	lea eax, [ebp-16]
+	push eax
+	call vector_clear
+	add esp, 4
+	
+	lea eax, [ebp-16]
+	push 69
+	push eax
+	call vector_push_back
+	mov dword[esp+4], 420
+	call vector_push_back
+	add esp, 8
 	
 	;print vector
 	lea eax, [ebp-16]

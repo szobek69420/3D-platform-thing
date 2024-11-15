@@ -17,10 +17,12 @@ section .text
 	extern printf
 	extern memcpy
 
-	global vector_init
-	global vector_destroy
-	global vector_push_back
-	global vector_pop_back
+	global vector_init			;vector vector_init(int element_size)
+	global vector_destroy		;void vector_destroy(vector*)
+	global vector_clear			;void vector_clear(vector*)
+	global vector_push_back	;void vector_push_back(vector*, <element> element)
+	global vector_pop_back		;void vector_pop_back(vector*)
+	global vector_insert		;void vector_insert(vector*, int index, <element> element)
 
 vector_init: ;vector vector_init(element_size)
 	push ebp
@@ -56,6 +58,34 @@ vector_destroy:		;void vector_destroy(vector* gaynigga)
 	push eax
 	mov dword[ecx+12], 0	;set to NULL
 	call free
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+vector_clear:	;void vector_clear(vector* pacalmaca)
+	push ebp
+	mov ebp, esp
+	
+	mov ecx, dword[ebp+8]	;vector* in ecx
+	mov dword[ecx], 0		;size=0
+	mov dword[ecx+4], 1	;capacity=1
+	
+	;alloc new data
+	push ecx		;save ecx
+	mov eax, dword[ecx+12]
+	push eax
+	call free
+	add esp, 4
+	
+	mov eax, dword[ecx+8]		;element size in eax
+	push eax
+	call malloc
+	add esp, 4
+	
+	pop ecx		;restore ecx
+	mov dword[ecx+12],eax		;save the new data*
 	
 	mov esp, ebp
 	pop ebp
@@ -152,6 +182,79 @@ _pop_back_not_empty:
 	mov dword[ecx+12], eax
 	
 _pop_back_skip_realloc:
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+vector_insert:			;void vector_insert(vector*, int index, <element> element)
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]
+	push eax		;vector* at ebp-4
+	
+	;check if realloc is necessary
+	mov ecx, dword[eax]
+	cmp ecx, dword[eax+4]
+	jl _insert_realloc_done
+	
+	;calculate new data* size
+	mov edx, dword[eax+4]
+	shl edx, 1
+	mov dword[eax+4], edx			;save new capacity
+	imul edx, dword[eax+8]
+	
+	
+	push edx
+	push dword[eax+12]
+	call realloc
+	add esp, 8
+	
+	mov ecx, dword[ebp-4]
+	mov dword[ecx+12],eax		;save new data*
+	
+_insert_realloc_done:
+	mov eax, dword[ebp-4]			;vector* in eax
+	
+	;calculate offset of new element
+	mov ecx, dword[eax+12]
+	mov edx, dword[ebp+12]		;index in edx
+	imul edx, dword[eax+8]			;offset in edx
+	add ecx, edx
+	;calculate the size of the copied data
+	mov edx, dword[eax]		;size of vector
+	sub edx, dword[ebp+12]	;number of elements to copy
+	imul edx, dword[eax+8]		;size copied region
+	
+	;copy the current data
+	push ecx			;store ecx
+	
+	push edx		;size of copied region
+	push ecx			;src*
+	add ecx, 4
+	push ecx			;dst*
+	call memcpy
+	add esp, 12
+	
+	pop ecx			;restore ecx
+	
+	;copy in the new element
+	mov eax, dword[ebp-4]
+	mov edx, dword[eax+8]	;element size in edx
+	push edx
+	lea edx, [ebp+16]		;element* in edx
+	push edx
+	push ecx
+	call memcpy
+	add esp, 12
+	
+	;increment size
+	mov eax, dword[ebp-4]
+	mov ecx, dword[eax]
+	inc ecx
+	mov dword[eax], ecx
+	
 	mov esp, ebp
 	pop ebp
 	ret
