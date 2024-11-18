@@ -307,18 +307,6 @@ vec3_normalize:
 	movss xmm1, xmm0	;length also in xmm1
 	shufps xmm0, xmm1, 0b00000000
 	
-	sub esp, 16
-	movups [esp], xmm0
-	push eax
-	push ecx
-	lea eax, [esp+8]
-	push eax
-	call vec3_print
-	add esp, 4
-	pop ecx
-	pop eax
-	add esp, 16
-	
 	;vector in xmm1, the 4th value is zeroed
 	movups xmm1, [eax]		;movups, mert a movaps koveteli a 16 byte-os igazitast
 	insertps xmm1, xmm1, 0b00001000
