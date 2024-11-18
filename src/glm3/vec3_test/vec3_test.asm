@@ -162,6 +162,15 @@ _start:
 	call vec3_print
 	add esp, 4
 	
+	;normalize null vector
+	mov dword[ebp-24], 0
+	mov dword[ebp-20], 0
+	mov dword[ebp-16], 0
+	lea eax, [ebp-24]
+	push eax
+	call vec3_normalize
+	add esp, 4
+	
 	
 	mov esp, ebp
 	pop ebp

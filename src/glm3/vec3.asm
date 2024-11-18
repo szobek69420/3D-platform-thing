@@ -6,6 +6,7 @@
 section .data
 	print_format db "(%.3f, %.3f, %.3f)",10,0
 	print_float db "%.3f",10,0
+	normalize_error_message db "vec3: normalizing a null vector, eh?",10,0
 	zero dd 0.0
 	epsilon dd 0.0001
 
@@ -301,7 +302,7 @@ vec3_normalize:
 	movss xmm1, dword[ecx]		;epsilon in xmm1
 	movss xmm0, dword[ebp-20]	;length in xmm0
 	ucomiss xmm0, xmm1
-	jb normalize_done
+	jb normalize_error_report
 	
 	;fill up the 4 slots of xmm0 with the length (https://www.officedaytime.com/simd512e/simdimg/si.php?f=shufps figure 1)
 	movss xmm1, xmm0	;length also in xmm1
@@ -323,6 +324,12 @@ vec3_normalize:
 	mov dword[eax+4], ecx
 	mov ecx, dword[ebp-8]
 	mov dword[eax+8], ecx
+	
+	jmp normalize_done
+	
+normalize_error_report:
+	push normalize_error_message
+	call printf
 	
 normalize_done:
 	mov esp, ebp
