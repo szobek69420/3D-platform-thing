@@ -3,6 +3,7 @@ section .rodata
 	add_message db "mat2+=mat1",10,0
 	add_message_itself db "mat1+=mat1",10,0
 	sub_message db "mat2-=mat1", 10,0
+	transpose_message db "mat2 transposed: ",10,0
 	
 section .data
 	init_value dd 2.0
@@ -17,6 +18,7 @@ section .text
 	extern mat3_initDetailed
 	extern mat3_add
 	extern mat3_sub
+	extern mat3_transpose
 	
 	global _start
 _start:
@@ -110,6 +112,17 @@ _start:
 	call mat3_print
 	lea eax, [ebp-72]
 	mov dword[esp], eax
+	call mat3_print
+	add esp, 4
+	
+	;test transpose
+	push transpose_message
+	call printf
+	add esp, 4
+	
+	lea eax, [ebp-72]
+	push eax
+	call mat3_transpose
 	call mat3_print
 	add esp, 4
 	

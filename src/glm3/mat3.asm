@@ -19,6 +19,7 @@ section .text
 	global mat3_initDetailed	;void mat3_initDetailed(mat3* buffer, float* values)
 	global mat3_add			;void mat3_add(mat3* buffer, mat3* a, mat3* b)		//buffer may point to a or b
 	global mat3_sub			;void mat3_sub(mat3* buffer, mat3* a, mat3* b)		//buffer may point to a or b
+	global mat3_transpose		;void mat3_transpose(mat3* mat)
 	
 mat3_print:
 	mov eax, dword[esp+4]	;&mat in eax
@@ -206,4 +207,64 @@ _sub_copy_data:
 	pop ebx		;restore ebx
 	pop edi		;restore edi
 	
+	ret
+	
+	
+mat3_transpose:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 36		;alloc space for temporary matrix
+	
+	;copy matrix
+	push 36
+	mov eax, dword[ebp+8]	;&mat in eax
+	push eax
+	lea eax, [ebp-36]
+	push eax
+	call memcpy
+	add esp, 12
+	
+	;move back the transposed values
+	push edi	;save edi
+	push esi	;save esi
+	push ebx	;save ebx
+	
+	xor edi, edi	;line number
+	xor esi, esi	;column number
+	
+	lea eax, [ebp-36]	;src* in eax
+	mov ecx, dword[ebp+8]	;dst* in ecx
+_transpose_outer_loop_start:
+_transpose_inner_loop_start:
+	mov ebx, edi
+	imul ebx, 12
+	lea ebx, [ebx+4*esi]
+	add ebx, eax
+	
+	mov edx, dword[ebx]
+	
+	mov ebx, esi
+	imul ebx, 12
+	lea ebx, [ebx+4*edi]
+	add ebx, ecx
+	
+	mov dword[ebx], edx
+	
+	inc esi
+	cmp esi, 3
+	jl _transpose_inner_loop_start
+	
+	xor esi, esi
+	inc edi
+	cmp edi, 3
+	jl _transpose_outer_loop_start
+	
+	
+	pop ebx		;restore ebx
+	pop esi		;restore esi
+	pop edi		;restore edi
+	
+	mov esp, ebp
+	pop ebp
 	ret
