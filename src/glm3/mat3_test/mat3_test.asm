@@ -5,11 +5,15 @@ section .rodata
 	sub_message db "mat2-=mat1", 10,0
 	transpose_message db "mat2 transposed: ",10,0
 	mul_message db "mat2*=mat2:",10,0
+	scalarMul_message db "mat2*=0.69",10,0
+	det_message db "determinant of mat2: %.5f",10,0
+	det_message2 db "morbed mat2:",10,0
 	
 section .data
 	init_value dd 2.0
 	initDetailed_values dd 1.0,2.1,3.2,4.3,5.4,6.5,7.6,8.7,9.8
-	
+	scalarMul_value dd 0.69
+	random_value dd -23.69
 	
 section .text
 	extern printf
@@ -21,6 +25,8 @@ section .text
 	extern mat3_sub
 	extern mat3_transpose
 	extern mat3_mul
+	extern mat3_scalarMul
+	extern mat3_det
 	
 	global _start
 _start:
@@ -143,6 +149,38 @@ _start:
 	call mat3_print
 	add esp, 12
 	
+	;test scalarMul
+	push scalarMul_message
+	call printf
+	add esp, 4
+	
+	mov eax, dword[scalarMul_value]
+	push eax
+	lea eax, [ebp-72]
+	push eax
+	push eax
+	call mat3_scalarMul
+	call mat3_print
+	add esp, 12
+	
+	;test determinant
+	push det_message2
+	call printf
+	lea eax, [ebp-72]
+	mov ecx, dword[random_value]
+	mov dword[eax+8], ecx
+	mov dword[esp], eax
+	call mat3_print
+	add esp, 4
+	
+	sub esp, 4
+	lea eax, [ebp-72]
+	push eax
+	call mat3_det
+	fstp qword[esp]
+	push det_message
+	call printf
+	add esp, 12
 	
 	
 	mov esp, ebp

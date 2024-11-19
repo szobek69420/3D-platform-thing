@@ -23,6 +23,8 @@ section .text
 	global mat3_sub			;void mat3_sub(mat3* buffer, mat3* a, mat3* b)		//buffer may point to a or b
 	global mat3_transpose		;void mat3_transpose(mat3* mat)
 	global mat3_mul			;void mat3_mul(mat3* buffer, mat3* a, mat3*)		//buffer can point to a or b
+	global mat3_scalarMul		;void mat3_scalarMul(mat3* buffer, mat3* mat, float value)	//buffer can point to mat	
+	global mat3_det			;float mat3_det(mat3* mat)		//pushes the result onto the FPU stack
 	
 mat3_print:
 	mov eax, dword[esp+4]	;&mat in eax
@@ -355,3 +357,73 @@ _column_loop_start:
 	mov esp, ebp
 	pop ebp
 	ret
+	
+	
+mat3_scalarMul:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]		;&buffer in eax
+	mov ecx, dword[ebp+12]		;&mat in ecx
+	movss xmm0, dword[ebp+16]	;value in xmm0
+	movss xmm1, xmm0
+	shufps xmm0, xmm1, 0		;all slots in xmm0 are filled with value
+	
+	movups xmm1, [ecx]
+	mulps xmm1, xmm0
+	movups [eax], xmm1
+	
+	movups xmm1, [ecx+16]
+	mulps xmm1, xmm0
+	movups [eax+16], xmm1
+	
+	movss xmm1, dword[ecx+32]
+	mulss xmm1, xmm0
+	movss dword[eax+32], xmm1
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+mat3_det:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]		;&mat in eax
+	
+	fld dword[eax]
+	fld dword[eax+16]
+	fld dword[eax+32]
+	fmulp
+	fld dword[eax+20]
+	fld dword[eax+28]
+	fmulp
+	fsubp
+	fmulp
+	
+	fld dword[eax+4]
+	fld dword[eax+12]
+	fld dword[eax+32]
+	fmulp
+	fld dword[eax+20]
+	fld dword[eax+24]
+	fmulp
+	fsubp
+	fmulp
+	fsubp
+	
+	fld dword[eax+8]
+	fld dword[eax+12]
+	fld dword[eax+28]
+	fmulp
+	fld dword[eax+16]
+	fld dword[eax+24]
+	fmulp
+	fsubp
+	fmulp
+	faddp
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
