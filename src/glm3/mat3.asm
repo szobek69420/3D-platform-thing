@@ -6,9 +6,14 @@
 ;}
 ;each float is 4 bytes long
 
+section .rodata
+	inverse_error_message db "mat3_inverse: there is no inverse",10,0
+
 section .data
 	print_line db "| %.3f, %.3f, %.3f |",10,0
 	zero dd 0.0
+	one dd 1.0
+	epsilon dd 0.0001
 
 section .text
 	extern printf
@@ -433,110 +438,207 @@ mat3_inverse:
 	push ebp
 	mov ebp, esp
 	
-	sub esp, 36		;alloc space for temporary matrix
-	sub esp, 16		;alloc space for temporary submatrix
-	sub esp, 4		;current line offset (12 byte increment)
-	sub esp, 4		;current column offset	(4 byte increment)
+	sub esp, 72		;temporary matrix and helper matrix, merged into a 3x6 matrix
 	sub esp, 4		;determinant
 	
 	;calculate determinant
 	mov eax, dword[ebp+12]
 	push eax
 	call mat3_det
-	add eax, 4
-	fstp dword[ebp-64]
+	add esp, 4
+	fstp dword[ebp-76]	;store determinant
 	
-	push 36
-	mov eax, dword[ebp+12]
+	;check if inverse exists
+	xor dword[ebp-76], 0x80000000		;remove the sign of the determinant
+	movss xmm0, dword[epsilon]
+	ucomiss xmm0, dword[ebp-76]
+	jb _inverse_exists
+	
+	push inverse_error_message
+	call printf
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+_inverse_exists:
+
+	;copy the matrix to the temporary location
+	lea eax, [ebp-72]
+	mov ecx, dword[ebp+12]
+	push 12
+	push ecx
 	push eax
-	lea eax, [ebp-36]
-	push eax
+	call memcpy
+	add dword[esp], 24
+	add dword[esp+4], 12
+	call memcpy
+	add dword[esp], 24
+	add dword[esp+4], 12
 	call memcpy
 	add esp, 12
 	
-	push edi		;save edi
-	push esi		;save esi
-	push ebx		;save ebx
+	movss xmm0, dword[one]
 	
-	movss xmm4, dword[ebp-64]
-	mov ebx, 0		;negation indicator
+	movss dword[ebp-60], xmm0
 	mov dword[ebp-56], 0
-_inverse_line_loop_start:
-	mov dword[ebp-60], 0
-_inverse_column_loop_start:
+	mov dword[ebp-52], 0
+	
+	mov dword[ebp-36], 0
+	movss dword[ebp-32], xmm0
+	mov dword[ebp-28], 0
+	
+	mov dword[ebp-12], 0
+	mov dword[ebp-8], 0
+	movss dword[ebp-4], xmm0
 
-	push ebx		;save ebx once again
+	push esi	;save esi
+	push edi	;save edi
+	push ebx	;save ebx
 	
-	lea edx, [ebp-52]		;pointer to current element in the submatrix buffer
-	mov eax, 0
-_inverse_submatrix_line_loop_start:
-	mov ecx, 0
-_inverse_submatrix_column_loop_start:
+	
+	;eliminate lower half
+	xor esi, esi		;main line number
+	
+_inverse_lower_half_outer_loop_start:
+	mov eax, esi
+	imul eax, 28	;direkt 28!!
+	lea eax, [eax+ebp-72]	;first calculated element pointer in main line
+	
+	mov ebx, 24
+	lea ecx, [4*esi]
+	sub ebx, ecx	;helper for the inner inner loop
 
-	cmp eax, dword[ebp-56]		;check if the line is part of the submatrix
-	je _inverse_submatrix_column_loop_continue
-	cmp ecx, dword[ebp-60]		;check if the column is part of the submatrix
-	je _inverse_submatrix_column_loop_continue
+	mov edi, esi
+	inc edi		;eliminated line number
+_inverse_lower_half_inner_loop_start:
 	
-	lea ebx, [ebp-36]		;temp matrix buffer in ebx
-	add ebx, eax
-	add ebx, ecx
-	mov ebx, dword[ebx]
-	mov dword[edx], ebx
-	
-	add edx, 4			;increment submatrix buffer pointer
-	
-_inverse_submatrix_column_loop_continue:
-	add ecx, 4
-	cmp ecx, 12
-	jl _inverse_submatrix_column_loop_start
-	
-	add eax, 12
-	cmp eax, 36
-	jl _inverse_submatrix_line_loop_start
-	
-	pop ebx			;restore ebx
-	
-	;here I have the submatrix in the submatrix buffer
-	lea eax, [ebp-52]	;submatrix buffer in eax
-	lea ecx, [ebp-36]
-	add ecx, dword[ebp-56]
-	add ecx, dword[ebp-60]	;current element pointer in ecx
-	
-	movss xmm1, dword[eax]
-	movss xmm2, dword[eax+12]
-	mulss xmm1, xmm2
-	movss xmm2, dword[eax+4]
-	movss xmm3, dword[eax+8]
-	mulss xmm2, xmm3
-	subss xmm1, xmm2
+	mov ecx, edi
+	imul ecx, 24
+	lea ecx, [ecx+4*esi]
+	lea edx, [ebp-72]
+	add ecx, edx	;first calculated element pointer in eliminated line
 	
 	movss xmm0, dword[ecx]
-	mulss xmm0, xmm1
-	divss xmm0, xmm4	;divide by determinant
+	movss xmm1, dword[eax]
+	divss xmm0, xmm1	;scale factor
 	
-	mov ecx, dword[ebp+8]
-	add ecx, dword[ebp-56]
-	add ecx, dword[ebp-60]	;current element pointer in buffer in ecx
+	xor edx, edx
+_inverse_lower_half_inner_inner_loop_start:
+	movss xmm1, dword[ecx+edx]
+	movss xmm2, dword[eax+edx]
+	mulss xmm2, xmm0
+	subss xmm1, xmm2
+	movss dword[ecx+edx], xmm1
 	
-	movss dword[ecx], xmm0
-	xor dword[ecx], ebx
+	add edx,4
+	cmp edx, ebx
+	jl _inverse_lower_half_inner_inner_loop_start
 	
-	xor ebx, 0x80000000	;negate the negation indicator
+	inc edi
+	cmp edi, 3
+	jl _inverse_lower_half_inner_loop_start
 	
-	add dword[ebp-60],4
-	mov edx, dword[ebp-60]
-	cmp edx, 12
-	jl _inverse_column_loop_start
+	inc esi
+	cmp esi, 2
+	jl _inverse_lower_half_outer_loop_start
 	
-	add dword[ebp-56], 12
-	mov edx, dword[ebp-56]
-	cmp edx, 36
-	jl _inverse_line_loop_start
 	
-	pop ebx			;restore ebx
-	pop esi			;restore esi
-	pop edi			;restore edi
+	;divide lines
+	xor esi, esi
+	
+_inverse_division_outer_loop_start:
+	mov eax, esi
+	imul eax, 24
+	add eax, ebp
+	sub eax, 72		;the current line address
+	lea ecx, [4*esi]	;the column offset of the main element
+	
+	movss xmm0, dword[one]
+	movss xmm1, dword[eax+ecx]
+	divss xmm0, xmm1	;the scale factor of the line
+	
+	xor edi, edi
+_inverse_division_inner_loop_start:
+	movss xmm1, dword[eax+edi]
+	mulss xmm1, xmm0
+	movss dword[eax+edi], xmm1
+	
+	add edi, 4
+	cmp edi, 24
+	jl _inverse_division_inner_loop_start
+	
+	inc esi
+	cmp esi, 3
+	jl _inverse_division_outer_loop_start
+	
+	
+	
+	;eliminate upper half
+	mov esi, 2		;main line number
+	
+_inverse_upper_half_outer_loop_start:
+	mov eax, esi
+	imul eax, 28	;direkt 28!!
+	lea eax, [eax+ebp-72]	;first calculated element pointer in main line
+	
+	mov ebx, 24
+	lea ecx, [4*esi]
+	sub ebx, ecx	;helper for the inner inner loop
+
+	mov edi, esi
+	dec edi		;eliminated line number
+_inverse_upper_half_inner_loop_start:
+	
+	mov ecx, edi
+	imul ecx, 24
+	lea ecx, [ecx+4*esi]
+	lea edx, [ebp-72]
+	add ecx, edx	;first calculated element pointer in eliminated line
+	
+	movss xmm0, dword[ecx]	;scale factor
+	
+	xor edx, edx
+_inverse_upper_half_inner_inner_loop_start:
+	movss xmm1, dword[ecx+edx]
+	movss xmm2, dword[eax+edx]
+	mulss xmm2, xmm0
+	subss xmm1, xmm2
+	movss dword[ecx+edx], xmm1
+	
+	add edx,4
+	cmp edx, ebx
+	jl _inverse_upper_half_inner_inner_loop_start
+	
+	dec edi
+	cmp edi, 0
+	jge _inverse_upper_half_inner_loop_start
+	
+	dec esi
+	cmp esi, 0
+	jg _inverse_upper_half_outer_loop_start
+	
+	
+	;copy the results into the buffer
+	mov eax, dword[ebp+8]
+	lea ecx, [ebp-60]
+	
+	push 12
+	push ecx
+	push eax
+	call memcpy
+	add dword[esp+4], 24
+	add dword[esp], 12
+	call memcpy
+	add dword[esp+4], 24
+	add dword[esp], 12
+	call memcpy
+	add esp, 12
+	
+	
+	pop ebx		;restore ebx
+	pop edi		;restore edi
+	pop esi		;restore esi
 	
 	mov esp, ebp
 	pop ebp
