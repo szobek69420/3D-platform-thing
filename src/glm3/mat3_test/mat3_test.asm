@@ -8,6 +8,7 @@ section .rodata
 	scalarMul_message db "mat2*=0.69",10,0
 	det_message db "determinant of mat2: %.5f",10,0
 	det_message2 db "morbed mat2:",10,0
+	inverse_message db "mat2 inverted:",10,0
 	
 section .data
 	init_value dd 2.0
@@ -27,6 +28,7 @@ section .text
 	extern mat3_mul
 	extern mat3_scalarMul
 	extern mat3_det
+	extern mat3_inverse
 	
 	global _start
 _start:
@@ -181,6 +183,18 @@ _start:
 	push det_message
 	call printf
 	add esp, 12
+	
+	;test inverse
+	push inverse_message
+	call printf
+	add esp, 4
+	
+	lea eax, [ebp-72]
+	push eax
+	push eax
+	call mat3_inverse
+	call mat3_print
+	add esp, 8
 	
 	
 	mov esp, ebp

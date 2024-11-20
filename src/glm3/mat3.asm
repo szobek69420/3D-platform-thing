@@ -25,6 +25,7 @@ section .text
 	global mat3_mul			;void mat3_mul(mat3* buffer, mat3* a, mat3*)		//buffer can point to a or b
 	global mat3_scalarMul		;void mat3_scalarMul(mat3* buffer, mat3* mat, float value)	//buffer can point to mat	
 	global mat3_det			;float mat3_det(mat3* mat)		//pushes the result onto the FPU stack
+	global mat3_inverse		;void mat3_inverse(mat3* buffer, mat3* mat)	//buffer can point to mat
 	
 mat3_print:
 	mov eax, dword[esp+4]	;&mat in eax
@@ -427,3 +428,116 @@ mat3_det:
 	pop ebp
 	ret
 	
+	
+mat3_inverse:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 36		;alloc space for temporary matrix
+	sub esp, 16		;alloc space for temporary submatrix
+	sub esp, 4		;current line offset (12 byte increment)
+	sub esp, 4		;current column offset	(4 byte increment)
+	sub esp, 4		;determinant
+	
+	;calculate determinant
+	mov eax, dword[ebp+12]
+	push eax
+	call mat3_det
+	add eax, 4
+	fstp dword[ebp-64]
+	
+	push 36
+	mov eax, dword[ebp+12]
+	push eax
+	lea eax, [ebp-36]
+	push eax
+	call memcpy
+	add esp, 12
+	
+	push edi		;save edi
+	push esi		;save esi
+	push ebx		;save ebx
+	
+	movss xmm4, dword[ebp-64]
+	mov ebx, 0		;negation indicator
+	mov dword[ebp-56], 0
+_inverse_line_loop_start:
+	mov dword[ebp-60], 0
+_inverse_column_loop_start:
+
+	push ebx		;save ebx once again
+	
+	lea edx, [ebp-52]		;pointer to current element in the submatrix buffer
+	mov eax, 0
+_inverse_submatrix_line_loop_start:
+	mov ecx, 0
+_inverse_submatrix_column_loop_start:
+
+	cmp eax, dword[ebp-56]		;check if the line is part of the submatrix
+	je _inverse_submatrix_column_loop_continue
+	cmp ecx, dword[ebp-60]		;check if the column is part of the submatrix
+	je _inverse_submatrix_column_loop_continue
+	
+	lea ebx, [ebp-36]		;temp matrix buffer in ebx
+	add ebx, eax
+	add ebx, ecx
+	mov ebx, dword[ebx]
+	mov dword[edx], ebx
+	
+	add edx, 4			;increment submatrix buffer pointer
+	
+_inverse_submatrix_column_loop_continue:
+	add ecx, 4
+	cmp ecx, 12
+	jl _inverse_submatrix_column_loop_start
+	
+	add eax, 12
+	cmp eax, 36
+	jl _inverse_submatrix_line_loop_start
+	
+	pop ebx			;restore ebx
+	
+	;here I have the submatrix in the submatrix buffer
+	lea eax, [ebp-52]	;submatrix buffer in eax
+	lea ecx, [ebp-36]
+	add ecx, dword[ebp-56]
+	add ecx, dword[ebp-60]	;current element pointer in ecx
+	
+	movss xmm1, dword[eax]
+	movss xmm2, dword[eax+12]
+	mulss xmm1, xmm2
+	movss xmm2, dword[eax+4]
+	movss xmm3, dword[eax+8]
+	mulss xmm2, xmm3
+	subss xmm1, xmm2
+	
+	movss xmm0, dword[ecx]
+	mulss xmm0, xmm1
+	divss xmm0, xmm4	;divide by determinant
+	
+	mov ecx, dword[ebp+8]
+	add ecx, dword[ebp-56]
+	add ecx, dword[ebp-60]	;current element pointer in buffer in ecx
+	
+	movss dword[ecx], xmm0
+	xor dword[ecx], ebx
+	
+	xor ebx, 0x80000000	;negate the negation indicator
+	
+	add dword[ebp-60],4
+	mov edx, dword[ebp-60]
+	cmp edx, 12
+	jl _inverse_column_loop_start
+	
+	add dword[ebp-56], 12
+	mov edx, dword[ebp-56]
+	cmp edx, 36
+	jl _inverse_line_loop_start
+	
+	pop ebx			;restore ebx
+	pop esi			;restore esi
+	pop edi			;restore edi
+	
+	mov esp, ebp
+	pop ebp
+	ret
