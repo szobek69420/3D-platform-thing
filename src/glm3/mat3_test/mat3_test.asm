@@ -6,6 +6,7 @@ section .rodata
 	transpose_message db "mat2 transposed: ",10,0
 	mul_message db "mat2*=mat2:",10,0
 	scalarMul_message db "mat2*=0.69",10,0
+	vectorMul_message db "mat2*vector",10,0
 	det_message db "determinant of mat2: %.5f",10,0
 	det_message2 db "morbed mat2:",10,0
 	inverse_message db "mat2 inverted:",10,0
@@ -15,6 +16,7 @@ section .data
 	initDetailed_values dd 1.0,2.1,3.2,4.3,5.4,6.5,7.6,8.7,9.8
 	scalarMul_value dd 0.69
 	random_value dd -23.69
+	vector_values dd 2.3, -0.59, 10.4
 	
 section .text
 	extern printf
@@ -29,6 +31,10 @@ section .text
 	extern mat3_scalarMul
 	extern mat3_det
 	extern mat3_inverse
+	
+	extern vec3_print
+	extern vec3_mulWithMat
+	extern vec3_init
 	
 	global _start
 _start:
@@ -164,6 +170,33 @@ _start:
 	call mat3_scalarMul
 	call mat3_print
 	add esp, 12
+	
+	;test multiplication with vec3
+	push vectorMul_message
+	call printf
+	add esp, 4
+	
+	sub esp, 12	;temp vector
+	mov eax, dword[vector_values+8]
+	push eax
+	mov eax, dword[vector_values+4]
+	push eax
+	mov eax, dword[vector_values]
+	push eax
+	lea eax, [esp+12]
+	push eax
+	call vec3_init
+	call vec3_print
+	add esp, 16
+	
+	lea eax, [ebp-72]
+	push eax
+	call mat3_print
+	lea eax, [esp+4]
+	push eax
+	call vec3_mulWithMat
+	call vec3_print
+	add esp, 20
 	
 	;test determinant
 	push det_message2

@@ -23,6 +23,7 @@ section .text
 	
 	global mat3_print		;void mat3_print(mat3* mat)
 	global mat3_init		;void mat3_init(mat3* buffer, float value)	//fills the hauptdiagonale with the given value
+	global mat3_initDiagonal	;void mat3_initDiagonal(mat3* buffer, float a, float b, float c)
 	global mat3_initDetailed	;void mat3_initDetailed(mat3* buffer, float* values)
 	global mat3_add			;void mat3_add(mat3* buffer, mat3* a, mat3* b)		//buffer may point to a or b
 	global mat3_sub			;void mat3_sub(mat3* buffer, mat3* a, mat3* b)		//buffer may point to a or b
@@ -87,6 +88,26 @@ mat3_init:
 	;set the hauptdiagonale
 	mov dword[eax], ecx
 	mov dword[eax+16], ecx
+	mov dword[eax+32], ecx
+	
+	ret
+	
+mat3_initDiagonal:
+	mov eax, dword[esp+4]	;buffer in eax
+	
+	push 36
+	push 0
+	push eax
+	call memset
+	pop eax		;restore eax
+	add esp, 8
+	
+	;set the hauptdiagonale
+	mov ecx, dword[esp+8]	;value1 in ecx
+	mov dword[eax], ecx
+	mov ecx, dword[esp+12]	;value2 in ecx
+	mov dword[eax+16], ecx
+	mov ecx, dword[esp+16]	;value3 in ecx
 	mov dword[eax+32], ecx
 	
 	ret

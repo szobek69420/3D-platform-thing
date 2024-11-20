@@ -15,6 +15,7 @@ section .bss
 
 section .text
 	extern printf
+	extern memcpy
 
 	global vec3_print		;void vec3_print(vec3* vector)
 	global vec3_init		;void vec3_init(vec3* buffer, float x, float y, float z)
@@ -26,7 +27,8 @@ section .text
 	global vec3_scale		;void vec3_scale(vec3* vec, float factor)
 	global vec3_sqrMagnitude	;float vec3_sqrMagnitude(vec3* vec)			//returns the value on the FPU stack
 	global vec3_magnitude		;float vec3_magnitude(vec3* vec)			//returns the value on the FPU stack
-	global vec3_normalize		;void vec3_normalize(vec3* vec)			
+	global vec3_normalize		;void vec3_normalize(vec3* vec)	
+	global vec3_mulWithMat		;void vec3_mulWithMat(vec3* vec, mat3* mat)
 	
 vec3_print:
 	push ebp
@@ -332,6 +334,51 @@ normalize_error_report:
 	call printf
 	
 normalize_done:
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+vec3_mulWithMat:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 12		;temp vector
+	
+	push esi
+	
+	mov eax, dword[ebp+8]	;vec in eax
+	mov ecx, dword[ebp+12]	;mat in ecx
+	lea edx, [ebp-12]	;temp vec in edx
+	
+	xor esi, esi
+_mulWithMat_loop_start:
+	
+	push edx
+	push eax
+	push ecx
+	call vec3_dot
+	pop ecx
+	pop eax
+	pop edx
+	
+	fstp dword[edx]
+	
+	add edx, 4
+	add ecx, 12
+	inc esi
+	cmp esi, 3
+	jl _mulWithMat_loop_start
+	
+	pop esi
+	
+	mov eax, dword[ebp+8]
+	lea ecx, [ebp-12]
+	push 12
+	push ecx
+	push eax
+	call memcpy
+	
 	mov esp, ebp
 	pop ebp
 	ret
