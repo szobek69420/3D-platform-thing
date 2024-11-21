@@ -694,7 +694,7 @@ mat4_rotate:
 	sub esp, 64			;rotator
 
 	;copy and normalize axis
-	mov eax, esp
+	lea eax, [ebp-12]
 	mov ecx, dword[ebp+12]
 	
 	mov edx, dword[ecx]
@@ -713,10 +713,10 @@ mat4_rotate:
 	lea eax, [ebp-76]		;rotator in eax
 	lea ecx, [ebp-12]		;normalized axis in ecx
 	
-	movss xmm0, dword[ebp+16]
-	mulss xmm0, dword[DEG2RAD]	;rotational angle in rads in xmm0
+	movss xmm0, dword[DEG2RAD]
+	mulss xmm0, dword[ebp+16]	;rotational angle in rads in xmm0
 	
-	add esp, 8
+	sub esp, 8
 	movss dword[esp+4], xmm0
 	
 	fld dword[esp+4]
@@ -731,6 +731,7 @@ mat4_rotate:
 	
 	movss xmm3, dword[one]
 	subss xmm3, xmm1		;1-cos(angle) in xmm3
+	add esp, 8
 	
 	;overview
 	;eax: mat
@@ -750,26 +751,6 @@ mat4_rotate:
 	movss dword[eax], xmm4
 	
 	;(0,1)
-	movss xmm4, dword[ecx+4]
-	movss xmm5, dword[ecx]
-	mulss xmm4, xmm5
-	mulss xmm4, xmm3
-	movss xmm5, dword[ecx+8]
-	mulss xmm5, xmm2
-	addss xmm4, xmm5
-	movss dword[eax+4], xmm4
-	
-	;(0,2)
-	movss xmm4, dword[ecx+8]
-	movss xmm5, dword[ecx]
-	mulss xmm4, xmm5
-	mulss xmm4, xmm3
-	movss xmm5, dword[ecx+4]
-	mulss xmm5, xmm2
-	subss xmm4, xmm5
-	movss dword[eax+8], xmm4
-	
-	;(1,0)
 	movss xmm4, dword[ecx]
 	movss xmm5, dword[ecx+4]
 	mulss xmm4, xmm5
@@ -777,6 +758,26 @@ mat4_rotate:
 	movss xmm5, dword[ecx+8]
 	mulss xmm5, xmm2
 	subss xmm4, xmm5
+	movss dword[eax+4], xmm4
+	
+	;(0,2)
+	movss xmm4, dword[ecx]
+	movss xmm5, dword[ecx+8]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+4]
+	mulss xmm5, xmm2
+	addss xmm4, xmm5
+	movss dword[eax+8], xmm4
+	
+	;(1,0)
+	movss xmm4, dword[ecx+4]
+	movss xmm5, dword[ecx]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+8]
+	mulss xmm5, xmm2
+	addss xmm4, xmm5
 	movss dword[eax+16], xmm4
 	
 	;(1,1)
@@ -787,26 +788,6 @@ mat4_rotate:
 	movss dword[eax+20], xmm4
 	
 	;(1,2)
-	movss xmm4, dword[ecx+8]
-	movss xmm5, dword[ecx+4]
-	mulss xmm4, xmm5
-	mulss xmm4, xmm3
-	movss xmm5, dword[ecx]
-	mulss xmm5, xmm2
-	addss xmm4, xmm5
-	movss dword[eax+24], xmm4
-	
-	;(2,0)
-	movss xmm4, dword[ecx]
-	movss xmm5, dword[ecx+8]
-	mulss xmm4, xmm5
-	mulss xmm4, xmm3
-	movss xmm5, dword[ecx+4]
-	mulss xmm5, xmm2
-	addss xmm4, xmm5
-	movss dword[eax+32], xmm4
-	
-	;(2,1)
 	movss xmm4, dword[ecx+4]
 	movss xmm5, dword[ecx+8]
 	mulss xmm4, xmm5
@@ -814,6 +795,26 @@ mat4_rotate:
 	movss xmm5, dword[ecx]
 	mulss xmm5, xmm2
 	subss xmm4, xmm5
+	movss dword[eax+24], xmm4
+	
+	;(2,0)
+	movss xmm4, dword[ecx+8]
+	movss xmm5, dword[ecx]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+4]
+	mulss xmm5, xmm2
+	subss xmm4, xmm5
+	movss dword[eax+32], xmm4
+	
+	;(2,1)
+	movss xmm4, dword[ecx+8]
+	movss xmm5, dword[ecx+4]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx]
+	mulss xmm5, xmm2
+	addss xmm4, xmm5
 	movss dword[eax+36], xmm4
 	
 	;(2,2)
@@ -834,7 +835,10 @@ mat4_rotate:
 	mov dword[eax+56], 0
 	mov edx, dword[one]
 	mov dword[eax+60], edx
-	
+
+	lea eax, [ebp-76]
+	push eax
+	call mat4_print
 	
 	;morbin' time
 	lea eax, [ebp-76]
@@ -843,10 +847,6 @@ mat4_rotate:
 	push ecx
 	push ecx
 	call mat4_mul
-	
-	lea eax, [ebp-76]
-	push eax
-	call mat4_print
 	
 	mov esp, ebp
 	pop ebp

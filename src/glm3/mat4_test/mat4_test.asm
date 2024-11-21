@@ -4,7 +4,7 @@ section .rodata
 	sub_message db "mat2-=mat1",10,0
 	transpose_message db "mat2 transposed:",10,0
 	mul_message db "mat2*=mat2",10,0
-	scalarMul_message db "mat2*=0.5",10,0
+	scalarMul_message db "mat2*=-0.5",10,0
 	death_message db "det(mat2): %.3f",10,0
 	inverse_message db "mat2 tenet: ",10,0
 	scale_message db "mat2 scaled by ( 2.0, 3.0, 0.69, 1.5):",10,0
@@ -143,8 +143,14 @@ _start:
 	push eax
 	push eax
 	call mat4_mul
-	call mat4_print
 	add esp, 12
+	
+	lea eax, [ebp-64]
+	push eax
+	call mat4_print
+	sub dword[esp], 64
+	call mat4_print
+	add esp, 4
 	
 	;scalarMul test
 	push scalarMul_message
