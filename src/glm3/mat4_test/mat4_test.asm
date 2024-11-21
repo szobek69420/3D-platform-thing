@@ -6,6 +6,7 @@ section .rodata
 	mul_message db "mat2*=mat2",10,0
 	scalarMul_message db "mat2*=0.5",10,0
 	death_message db "det(mat2): %.3f",10,0
+	inverse_message db "mat2 tenet: ",10,0
 	
 section .data
 	init_value dd 0.69
@@ -27,6 +28,7 @@ section .text
 	
 	extern mat4_transpose
 	extern mat4_det
+	extern mat4_inverse
 	
 	global _start
 _start:
@@ -160,7 +162,19 @@ _start:
 	add esp, 12
 	
 	
+	;inverse test
+	push inverse_message
+	call printf
+	add esp, 4
 	
+	sub esp, 9	;to test movaps
+	lea eax, [ebp-128]
+	push eax
+	push eax
+	call mat4_inverse
+	call mat4_print
+	add esp, 8
+	add esp, 9
 	
 	mov esp, ebp
 	pop ebp

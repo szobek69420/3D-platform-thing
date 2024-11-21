@@ -10,6 +10,7 @@
 section .rodata
 	print_line_format db "| %.3f %.3f %.3f %.3f |",10,0
 	print_float db "%.3f",10,0
+	one dd 1.0
 
 section .text
 	extern memcpy
@@ -30,6 +31,7 @@ section .text
 	
 	global mat4_transpose		;void mat4_transpose(mat4* mat)
 	global mat4_det			;float mat4_det(mat4* det)		//pushes the result onto the FPU stack
+	global mat4_inverse		;float mat4_inverse(mat4* buffer, mat4* mat)	//buffer can point to mat
 	
 mat4_print:
 	push ebp
@@ -428,5 +430,184 @@ _det_copy_loop_continue:
 	pop ebx
 	
 	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+mat4_inverse:
+	push ebp
+	push edi
+	push esi
+	push ebx
+	mov ebp, esp
+	
+	;align to 16 bytes
+	mov eax, esp
+	xor edx, edx
+	mov ecx, 16
+	idiv ecx
+	sub esp, edx		;subtract the remainder
+	
+	sub esp, 128		;the temporary matrix and the result matrix merged together into a 4x8 matrix
+	mov ebx, esp		;gigamatrix in ebx (it shall remain there)
+	
+	;fill up the gigamatrix
+	mov esi, dword[ebp+24]	;mat in esi
+	push 16
+	push esi
+	push ebx
+	call memcpy
+	add dword[esp+4], 16
+	add dword[esp], 32
+	call memcpy
+	add dword[esp+4], 16
+	add dword[esp], 32
+	call memcpy
+	add dword[esp+4], 16
+	add dword[esp], 32
+	call memcpy
+	add esp, 12
+	
+	push 16
+	push 0
+	lea esi, [ebx+16]
+	push esi
+	call memset
+	add dword[esp], 32
+	call memset
+	add dword[esp], 32
+	call memset
+	add dword[esp], 32
+	call memset
+	add esp, 12
+	
+	movss xmm0, dword[one]
+	movss dword[ebx+16],xmm0
+	movss dword[ebx+52], xmm0
+	movss dword[ebx+88], xmm0
+	movss dword[ebx+124], xmm0
+	
+	;eliminate the lower half
+	xor edi, edi		;line to mog by
+_inverse_lower_outer_loop_start:
+	mov eax, edi
+	imul eax, 32
+	add eax, ebx		;points to the mogger line
+	
+	movss xmm0, dword[eax+4*edi]	;current element in the hauptdiagonale in xmm0
+
+	lea esi, [edi+1]	;moggable line index
+	lea ecx, [eax+32]	;moggable line address
+_inverse_lower_inner_loop_start:
+	;calculate scale factor
+	movss xmm1, dword[ecx+4*edi]
+	divss xmm1, xmm0
+	movss xmm2, xmm1
+	shufps xmm1, xmm2, 0	;xmm1 is filled with the scale factor
+	
+	movaps xmm2, [ecx]
+	movaps xmm3, [eax]
+	mulps xmm3, xmm1
+	subps xmm2, xmm3
+	movaps [ecx], xmm2
+	
+	movaps xmm2, [ecx+16]
+	movaps xmm3, [eax+16]
+	mulps xmm3, xmm1
+	subps xmm2, xmm3
+	movaps [ecx+16], xmm2
+	
+	add ecx, 32
+	inc esi
+	cmp esi, 4
+	jl _inverse_lower_inner_loop_start
+	
+	inc edi
+	cmp edi, 3
+	jl _inverse_lower_outer_loop_start
+	
+	
+	;normalize lines
+	xor edi, edi
+	mov eax, ebx		;gigamatrix in eax
+_inverse_normalize_loop_start:
+	movss xmm0, dword[one]
+	movss xmm1, dword[eax+4*edi]
+	divss xmm0, xmm1
+	movss xmm1, xmm0
+	shufps xmm0, xmm1, 0	;xmm0 is filled with the scalefactor
+	
+	movaps xmm1, [eax]
+	mulps xmm1, xmm0
+	movaps [eax], xmm1
+	
+	movaps xmm1, [eax+16]
+	mulps xmm1, xmm0
+	movaps [eax+16], xmm1
+	
+	add eax, 32
+	inc edi
+	cmp edi, 4
+	jl _inverse_normalize_loop_start
+
+	
+	;eliminate the upper half
+	mov edi, 3		;line to mog by
+_inverse_upper_outer_loop_start:
+	mov eax, edi
+	imul eax, 32
+	add eax, ebx		;points to the mogger line
+
+	lea esi, [edi-1]	;moggable line index
+	lea ecx, [eax-32]	;moggable line address
+_inverse_upper_inner_loop_start:
+	;calculate scale factor
+	movss xmm1, dword[ecx+4*edi]
+	movss xmm2, xmm1
+	shufps xmm1, xmm2, 0	;xmm1 is filled with the scale factor
+	
+	movaps xmm2, [ecx]
+	movaps xmm3, [eax]
+	mulps xmm3, xmm1
+	subps xmm2, xmm3
+	movaps [ecx], xmm2
+	
+	movaps xmm2, [ecx+16]
+	movaps xmm3, [eax+16]
+	mulps xmm3, xmm1
+	subps xmm2, xmm3
+	movaps [ecx+16], xmm2
+	
+	sub ecx, 32
+	dec esi
+	cmp esi, 0
+	jge _inverse_upper_inner_loop_start
+	
+	dec edi
+	cmp edi, 0
+	jg _inverse_upper_outer_loop_start
+	
+	
+	;copy back the rizzults
+	mov eax, [ebp+20]
+	lea ecx, [ebx+16]
+	push 16
+	push ecx
+	push eax
+	call memcpy
+	add dword[esp+4], 32
+	add dword[esp], 16
+	call memcpy
+	add dword[esp+4], 32
+	add dword[esp], 16
+	call memcpy
+	add dword[esp+4], 32
+	add dword[esp], 16
+	call memcpy
+	
+	mov esp, ebp
+	pop ebx
+	pop esi
+	pop edi
 	pop ebp
 	ret
