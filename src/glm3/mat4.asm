@@ -11,6 +11,7 @@ section .rodata
 	print_line_format db "| %.3f %.3f %.3f %.3f |",10,0
 	print_float db "%.3f",10,0
 	one dd 1.0
+	DEG2RAD dd 0.017453293
 
 section .text
 	extern memcpy
@@ -18,6 +19,7 @@ section .text
 	extern printf
 	extern mat3_det
 	extern mat3_print
+	extern vec3_normalize
 	
 	global mat4_print		;void mat4_print(mat4* mat)
 	global mat4_init		;void mat4_init(mat4* buffer, float value)		;fills the hauptdiagonal with value
@@ -32,6 +34,10 @@ section .text
 	global mat4_transpose		;void mat4_transpose(mat4* mat)
 	global mat4_det			;float mat4_det(mat4* det)		//pushes the result onto the FPU stack
 	global mat4_inverse		;float mat4_inverse(mat4* buffer, mat4* mat)	//buffer can point to mat
+	
+	global mat4_scale		;void mat4_scale(mat4* mat, vec4* factor)
+	global mat4_rotate		;void mat4_rotate(mat4* mat, vec3* vec, float angleInDegrees)
+	global mat4_translate		;void mat4_translate(mat4* mat, vec3* vec)
 	
 mat4_print:
 	push ebp
@@ -609,5 +615,239 @@ _inverse_upper_inner_loop_start:
 	pop ebx
 	pop esi
 	pop edi
+	pop ebp
+	ret
+	
+	
+mat4_scale:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 64
+	mov eax, dword[ebp+12]
+	push dword[eax+12]
+	push dword[eax+8]
+	push dword[eax+4]
+	push dword[eax]
+	lea eax, [ebp-64]
+	push eax
+	call mat4_initDiagonal
+	
+	mov ecx, dword[ebp+8]
+	push ecx
+	push ecx
+	call mat4_mul
+	
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+mat4_translate:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 64		;translator
+	
+	;set the hauptdiagonale to 1
+	mov eax, esp
+	mov ecx, dword[one]
+	push ecx
+	push eax
+	call mat4_init
+	add esp, 8
+	
+	;set the remaining values
+	lea eax, [esp+12]
+	mov ecx, dword[ebp+12]
+	
+	mov edx, dword[ecx]
+	mov dword[eax], edx
+	
+	mov edx, dword[ecx+4]
+	mov dword[eax+16], edx
+	
+	mov edx, dword[ecx+8]
+	mov dword[eax+32], edx
+	
+	;mol
+	mov eax, esp
+	mov ecx, dword[ebp+8]
+	push eax
+	push ecx
+	push ecx
+	call mat4_mul
+	
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+	
+mat4_rotate:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 12			;normalized axis
+	sub esp, 64			;rotator
+
+	;copy and normalize axis
+	mov eax, esp
+	mov ecx, dword[ebp+12]
+	
+	mov edx, dword[ecx]
+	mov dword[eax], edx
+	mov edx, dword[ecx+4]
+	mov dword[eax+4], edx
+	mov edx, dword[ecx+8]
+	mov dword[eax+8], edx
+	
+	push eax
+	call vec3_normalize
+	add esp, 4
+	
+	
+	;init variables
+	lea eax, [ebp-76]		;rotator in eax
+	lea ecx, [ebp-12]		;normalized axis in ecx
+	
+	movss xmm0, dword[ebp+16]
+	mulss xmm0, dword[DEG2RAD]	;rotational angle in rads in xmm0
+	
+	add esp, 8
+	movss dword[esp+4], xmm0
+	
+	fld dword[esp+4]
+	fcos
+	fstp dword[esp]
+	movss xmm1, dword[esp]		;cos(angle) in xmm1
+	
+	fld dword[esp+4]
+	fsin
+	fstp dword[esp]
+	movss xmm2, dword[esp]		;sin(angle) in xmm2
+	
+	movss xmm3, dword[one]
+	subss xmm3, xmm1		;1-cos(angle) in xmm3
+	
+	;overview
+	;eax: mat
+	;ecx: axis
+	;xmm0: angle
+	;xmm1: cos
+	;xmm2: sin
+	;xmm3: 1-cos
+	
+	;fill it up
+	
+	;(0,0)
+	movss xmm4, dword[ecx]
+	mulss xmm4, xmm4
+	mulss xmm4, xmm3
+	addss xmm4, xmm1
+	movss dword[eax], xmm4
+	
+	;(0,1)
+	movss xmm4, dword[ecx+4]
+	movss xmm5, dword[ecx]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+8]
+	mulss xmm5, xmm2
+	addss xmm4, xmm5
+	movss dword[eax+4], xmm4
+	
+	;(0,2)
+	movss xmm4, dword[ecx+8]
+	movss xmm5, dword[ecx]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+4]
+	mulss xmm5, xmm2
+	subss xmm4, xmm5
+	movss dword[eax+8], xmm4
+	
+	;(1,0)
+	movss xmm4, dword[ecx]
+	movss xmm5, dword[ecx+4]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+8]
+	mulss xmm5, xmm2
+	subss xmm4, xmm5
+	movss dword[eax+16], xmm4
+	
+	;(1,1)
+	movss xmm4, dword[ecx+4]
+	mulss xmm4, xmm4
+	mulss xmm4, xmm3
+	addss xmm4, xmm1
+	movss dword[eax+20], xmm4
+	
+	;(1,2)
+	movss xmm4, dword[ecx+8]
+	movss xmm5, dword[ecx+4]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx]
+	mulss xmm5, xmm2
+	addss xmm4, xmm5
+	movss dword[eax+24], xmm4
+	
+	;(2,0)
+	movss xmm4, dword[ecx]
+	movss xmm5, dword[ecx+8]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx+4]
+	mulss xmm5, xmm2
+	addss xmm4, xmm5
+	movss dword[eax+32], xmm4
+	
+	;(2,1)
+	movss xmm4, dword[ecx+4]
+	movss xmm5, dword[ecx+8]
+	mulss xmm4, xmm5
+	mulss xmm4, xmm3
+	movss xmm5, dword[ecx]
+	mulss xmm5, xmm2
+	subss xmm4, xmm5
+	movss dword[eax+36], xmm4
+	
+	;(2,2)
+	movss xmm4, dword[ecx+8]
+	mulss xmm4, xmm4
+	mulss xmm4, xmm3
+	addss xmm4, xmm1
+	movss dword[eax+40], xmm4
+	
+	;last column (except for (3,3) )
+	mov dword[eax+12], 0
+	mov dword[eax+28], 0
+	mov dword[eax+44], 0
+	
+	;last line
+	mov dword[eax+48], 0
+	mov dword[eax+52], 0
+	mov dword[eax+56], 0
+	mov edx, dword[one]
+	mov dword[eax+60], edx
+	
+	
+	;morbin' time
+	lea eax, [ebp-76]
+	mov ecx, dword[ebp+8]
+	push eax
+	push ecx
+	push ecx
+	call mat4_mul
+	
+	lea eax, [ebp-76]
+	push eax
+	call mat4_print
+	
+	mov esp, ebp
 	pop ebp
 	ret

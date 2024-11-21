@@ -7,11 +7,16 @@ section .rodata
 	scalarMul_message db "mat2*=0.5",10,0
 	death_message db "det(mat2): %.3f",10,0
 	inverse_message db "mat2 tenet: ",10,0
+	scale_message db "mat2 scaled by ( 2.0, 3.0, 0.69, 1.5):",10,0
+	translate_message db "mat1 translated by (2.0, 3.0, 0.69): ",10,0
+	rotate_message db "mat1 rotated around (2.0, 3.0, 0.69) by 69 degrees:",10,0
 	
 section .data
 	init_value dd 0.69
 	initDetailed_values dd 1.5, 8.1, -2.8, 0.23, 5.1, -2.1, 4.2, -6.9, 0.4, -9.11, 0.911, 7.1, 2.6, -3.31, -8.4, 0.2
 	scalarMul_value dd -0.5
+	scale_values dd 2.0, 3.0, 0.69, 1.5
+	rotational_angle dd 69.0
 
 section .text
 	extern printf
@@ -29,6 +34,10 @@ section .text
 	extern mat4_transpose
 	extern mat4_det
 	extern mat4_inverse
+	
+	extern mat4_scale
+	extern mat4_translate
+	extern mat4_rotate
 	
 	global _start
 _start:
@@ -175,6 +184,45 @@ _start:
 	call mat4_print
 	add esp, 8
 	add esp, 9
+	
+	;scale test
+	push scale_message
+	call printf
+	add esp, 4
+	
+	push scale_values
+	lea eax, [ebp-128]
+	push eax
+	call mat4_scale
+	call mat4_print
+	add esp, 8
+	
+	
+	;translation test
+	push translate_message
+	call printf
+	add esp, 4
+	
+	push scale_values
+	lea eax, [ebp-64]
+	push eax
+	call mat4_translate
+	call mat4_print
+	add esp, 8
+	
+	;rotation test
+	push rotate_message
+	call printf
+	add esp, 4
+	
+	push dword[ rotational_angle ]
+	push scale_values
+	lea eax, [ebp-64]
+	push eax
+	call mat4_rotate
+	call mat4_print
+	add esp, 12
+	
 	
 	mov esp, ebp
 	pop ebp
