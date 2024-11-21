@@ -5,6 +5,7 @@ section .rodata
 	transpose_message db "mat2 transposed:",10,0
 	mul_message db "mat2*=mat2",10,0
 	scalarMul_message db "mat2*=0.5",10,0
+	death_message db "det(mat2): %.3f",10,0
 	
 section .data
 	init_value dd 0.69
@@ -25,11 +26,14 @@ section .text
 	extern mat4_scalarMul
 	
 	extern mat4_transpose
+	extern mat4_det
 	
 	global _start
 _start:
 	push ebp
 	mov ebp, esp
+	
+	finit
 	
 	sub esp, 64		;mat1
 	sub esp, 64		;mat2
@@ -144,6 +148,18 @@ _start:
 	call mat4_scalarMul
 	call mat4_print
 	add esp, 12
+	
+	;det test
+	lea eax, [ebp-128]
+	sub esp, 4
+	push eax
+	call mat4_det
+	fstp qword[esp]
+	push death_message
+	call printf
+	add esp, 12
+	
+	
 	
 	
 	mov esp, ebp

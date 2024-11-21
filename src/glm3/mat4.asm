@@ -9,11 +9,14 @@
 
 section .rodata
 	print_line_format db "| %.3f %.3f %.3f %.3f |",10,0
+	print_float db "%.3f",10,0
 
 section .text
 	extern memcpy
 	extern memset
 	extern printf
+	extern mat3_det
+	extern mat3_print
 	
 	global mat4_print		;void mat4_print(mat4* mat)
 	global mat4_init		;void mat4_init(mat4* buffer, float value)		;fills the hauptdiagonal with value
@@ -26,6 +29,7 @@ section .text
 	global mat4_scalarMul		;void mat4_scalarMul(mat4* buffer, mat4* mat, float value)	//buffer can point to mat
 	
 	global mat4_transpose		;void mat4_transpose(mat4* mat)
+	global mat4_det			;float mat4_det(mat4* det)		//pushes the result onto the FPU stack
 	
 mat4_print:
 	push ebp
@@ -349,6 +353,79 @@ _transpose_inner_loop_start:
 	pop ebx
 	pop esi
 	pop edi
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+
+mat4_det:		;sorfejtessel
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 36		;temp submatrix
+	
+	push ebx
+	push edi
+	push esi
+	push 0			;sign mask
+	
+	mov ebx, dword[ebp+8]	;mat in ebx
+	xor edi, edi		;submatrix number
+_det_submatrix_loop_start:
+	
+	xor ecx, ecx		;column index
+	lea edx, [ebx+16]	;the current element in the second row of the matrix
+	lea esi, [ebp-36]	;current element in the first row of the temp submatrix in esi
+_det_copy_loop_start:
+	cmp ecx, edi
+	je _det_copy_loop_continue
+	
+	
+	mov eax, dword[edx]
+	mov dword[esi], eax
+	
+	mov eax, dword[edx+16]
+	mov dword[esi+12], eax
+	
+	mov eax, dword[edx+32]
+	mov dword[esi+24], eax
+	
+	add esi, 4
+	
+_det_copy_loop_continue:
+	add edx, 4
+	inc ecx
+	cmp ecx, 4
+	jl _det_copy_loop_start
+	
+	;calculate subdeterminant
+	mov eax, dword[ebx+4*edi]
+	xor eax, dword[esp]		;apply sign mask
+	push eax
+	fld dword[esp]
+	add esp, 4
+	
+	lea eax, [ebp-36]
+	push eax
+	call mat3_det
+	add esp, 4
+	fmulp
+	
+	xor dword[esp], 0x80000000	;change sign mask
+	
+	inc edi
+	cmp edi, 4
+	jl _det_submatrix_loop_start
+	
+	faddp
+	faddp
+	faddp
+	
+	add esp, 4
+	pop esi
+	pop edi
+	pop ebx
 	
 	mov esp, ebp
 	pop ebp

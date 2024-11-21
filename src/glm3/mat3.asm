@@ -418,37 +418,42 @@ mat3_det:
 	
 	mov eax, dword[ebp+8]		;&mat in eax
 	
-	fld dword[eax]
-	fld dword[eax+16]
-	fld dword[eax+32]
-	fmulp
-	fld dword[eax+20]
-	fld dword[eax+28]
-	fmulp
-	fsubp
-	fmulp
+	movss xmm1, dword[eax+16]
+	movss xmm2, dword[eax+32]
+	mulss xmm1, xmm2
+	movss xmm2, dword[eax+20]
+	movss xmm3, dword[eax+28]
+	mulss xmm2, xmm3
+	subss xmm1, xmm2
+	movss xmm2, dword[eax]
+	mulss xmm1, xmm2
+	movss xmm0, xmm1
 	
-	fld dword[eax+4]
-	fld dword[eax+12]
-	fld dword[eax+32]
-	fmulp
-	fld dword[eax+20]
-	fld dword[eax+24]
-	fmulp
-	fsubp
-	fmulp
-	fsubp
+	movss xmm1, dword[eax+12]
+	movss xmm2, dword[eax+32]
+	mulss xmm1, xmm2
+	movss xmm2, dword[eax+20]
+	movss xmm3, dword[eax+24]
+	mulss xmm2, xmm3
+	subss xmm1, xmm2
+	movss xmm2, dword[eax+4]
+	mulss xmm1, xmm2
+	subss xmm0, xmm1
 	
-	fld dword[eax+8]
-	fld dword[eax+12]
-	fld dword[eax+28]
-	fmulp
-	fld dword[eax+16]
-	fld dword[eax+24]
-	fmulp
-	fsubp
-	fmulp
-	faddp
+	movss xmm1, dword[eax+12]
+	movss xmm2, dword[eax+28]
+	mulss xmm1, xmm2
+	movss xmm2, dword[eax+16]
+	movss xmm3, dword[eax+24]
+	mulss xmm2, xmm3
+	subss xmm1, xmm2
+	movss xmm2, dword[eax+8]
+	mulss xmm1, xmm2
+	addss xmm0, xmm1
+	
+	sub esp, 4
+	movss dword[esp], xmm0
+	fld dword[esp]
 	
 	mov esp, ebp
 	pop ebp
