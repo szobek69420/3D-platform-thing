@@ -973,6 +973,98 @@ mat4_view:
 	pop ebp
 	ret
 	
+
+mat4_ortho:
+	push ebp
+	mov ebp, esp
+	
+	;save xmm6 and xmm7
+	sub esp, 8
+	movss dword[esp+4], xmm6
+	movss dword[esp], xmm7
+	
+	;fill the matrix with zeros
+	mov eax, dword[ebp+8]
+	push 64
+	push 0
+	push eax
+	call memset
+	add esp, 12
+	
+	;xmm0: left
+	;xmm1: right
+	;xmm2: bottom
+	;xmm3: top
+	;xmm4: near
+	;xmm5: far
+	movss xmm0, dword[ebp+12]
+	movss xmm1, dword[ebp+16]
+	movss xmm2, dword[ebp+20]
+	movss xmm3, dword[ebp+24]
+	movss xmm4, dword[ebp+28]
+	movss xmm5, dword[ebp+32]
+	
+	
+	;calculate the non-zero fields
+	mov eax, dword[ebp+8]		;buffer in eax
+	
+	;(0,0): 2/(right-left)
+	movss xmm6, dword[two]
+	movss xmm7, xmm1
+	subss xmm7, xmm0
+	divss xmm6, xmm7
+	movss dword[eax], xmm6
+	
+	;(1,1): 2/(top-bottom)
+	movss xmm6, dword[two]
+	movss xmm7, xmm3
+	subss xmm7, xmm2
+	divss xmm6, xmm7
+	movss dword[eax+20], xmm6
+	
+	;(2,2): -2/(far-near)
+	movss xmm6, dword[two]
+	movss xmm7, xmm4
+	subss xmm7, xmm5
+	divss xmm6, xmm7
+	movss dword[eax+40], xmm6
+	
+	;(0,3): -(right+left)/(right-left)
+	movss xmm6, xmm1
+	addss xmm6, xmm0
+	movss xmm7, xmm0
+	subss xmm7, xmm1
+	divss xmm6, xmm7
+	movss dword[eax+12], xmm6
+	
+	;(1,3): -(top+bottom)/(top-bottom)
+	movss xmm6, xmm3
+	addss xmm6, xmm2
+	movss xmm7, xmm2
+	subss xmm7, xmm3
+	divss xmm6, xmm7
+	movss dword[eax+28], xmm6
+	
+	;(2,3): -(far+near)/(far-near)
+	movss xmm6, xmm5
+	addss xmm6, xmm4
+	movss xmm7, xmm4
+	subss xmm7, xmm5
+	divss xmm6, xmm7
+	movss dword[eax+44], xmm6
+	
+	;(3,3): 1
+	mov ecx, dword[one]
+	mov dword[eax+60], ecx
+	
+	
+	;restore xmm6 and xmm7
+	movss xmm7, dword[esp]
+	movss xmm6, dword[esp+4]
+	
+	mov esp, ebp
+	pop ebp
+	ret
 	
 mat4_perspective:
 	push ebp

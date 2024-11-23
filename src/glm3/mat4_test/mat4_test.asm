@@ -12,6 +12,7 @@ section .rodata
 	rotate_message db "mat1 rotated around (2.0, 3.0, 0.69) by 69 degrees:",10,0
 	view_message db "mat1 is now a view matrix with pos=(3.1, 83.1, -2.0), direction=(-23.0, 0.4, 2.0), worldUp=(0.0, 1.0, 0.0)",10,0
 	perspective_message db "mat1 is now a perspective matrix with fov=69.0, aspectXY=1.5, near=0.1, far=100.0",10,0
+	ortho_message db "mat1 is now an orthogonal proj matrix with the values -69,69,-42,42,-6.9,6.9",10,0
 	
 section .data
 	init_value dd 0.69
@@ -28,6 +29,13 @@ section .data
 	aspectXY dd 1.5
 	near_clip dd 0.1
 	far_clip dd 100.0
+	
+	ortho_left dd -69.0
+	ortho_right dd 69.0
+	ortho_bottom dd -42.0
+	ortho_top dd 42.0
+	ortho_near dd -6.9
+	ortho_far dd 6.9
 
 section .text
 	extern printf
@@ -52,6 +60,7 @@ section .text
 	
 	extern mat4_view
 	extern mat4_perspective
+	extern mat4_ortho
 	
 	global _start
 _start:
@@ -272,6 +281,23 @@ _start:
 	call mat4_perspective
 	call mat4_print
 	add esp, 20
+	
+	;ortho test
+	push ortho_message
+	call printf
+	add esp, 4
+	
+	lea eax, [ebp-64]
+	push dword[ortho_far]
+	push dword[ortho_near]
+	push dword[ortho_top]
+	push dword[ortho_bottom]
+	push dword[ortho_right]
+	push dword[ortho_left]
+	push eax
+	call mat4_ortho
+	call mat4_print
+	add esp, 28
 	
 	
 	mov esp, ebp
