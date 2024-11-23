@@ -10,6 +10,7 @@ section .rodata
 	scale_message db "mat2 scaled by ( 2.0, 3.0, 0.69, 1.5):",10,0
 	translate_message db "mat1 translated by (2.0, 3.0, 0.69): ",10,0
 	rotate_message db "mat1 rotated around (2.0, 3.0, 0.69) by 69 degrees:",10,0
+	view_message db "mat1 is now a view matrix with pos=(3.1, 83.1, -2.0), direction=(-23.0, 0.4, 2.0), worldUp=(0.0, 1.0, 0.0)",10,0
 	
 section .data
 	init_value dd 0.69
@@ -17,6 +18,10 @@ section .data
 	scalarMul_value dd -0.5
 	scale_values dd 2.0, 3.0, 0.69, 1.5
 	rotational_angle dd 69.0
+	
+	position_values dd 3.1, 83.1, -2.0
+	direction_values dd -23.0, 0.4, 2.0
+	worldUp_values dd 0.0, 1.0, 0.0
 
 section .text
 	extern printf
@@ -38,6 +43,8 @@ section .text
 	extern mat4_scale
 	extern mat4_translate
 	extern mat4_rotate
+	
+	extern mat4_view
 	
 	global _start
 _start:
@@ -228,6 +235,20 @@ _start:
 	call mat4_rotate
 	call mat4_print
 	add esp, 12
+	
+	;view test
+	push view_message 
+	call printf
+	add esp, 4
+	
+	lea eax, [ebp-64]
+	push worldUp_values
+	push direction_values
+	push position_values
+	push eax
+	call mat4_view
+	call mat4_print
+	add esp, 16
 	
 	
 	mov esp, ebp

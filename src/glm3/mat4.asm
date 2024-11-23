@@ -20,6 +20,7 @@ section .text
 	extern mat3_det
 	extern mat3_print
 	extern vec3_normalize
+	extern vec3_cross
 	
 	global mat4_print		;void mat4_print(mat4* mat)
 	global mat4_init		;void mat4_init(mat4* buffer, float value)		;fills the hauptdiagonal with value
@@ -38,6 +39,10 @@ section .text
 	global mat4_scale		;void mat4_scale(mat4* mat, vec4* factor)
 	global mat4_rotate		;void mat4_rotate(mat4* mat, vec3* vec, float angleInDegrees)
 	global mat4_translate		;void mat4_translate(mat4* mat, vec3* vec)
+	
+	global mat4_view		;void mat4_look(mat4* buffer, vec3* position, vec3* direction, vec3* worldup)
+	global mat4_ortho		;void mat4_ortho(mat4* buffer, float left, float right, float bottom, float top, float near, float far)
+	global mat4_perspective		;void mat4_perspective(mat4* buffer, float fovInDegrees, float aspectXY, float near, float far)
 	
 mat4_print:
 	push ebp
@@ -847,6 +852,119 @@ mat4_rotate:
 	push ecx
 	push ecx
 	call mat4_mul
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+mat4_view:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 12	;direction
+	sub esp, 12	;right
+	sub esp, 12	;up
+	
+	;copy and normalize direction
+	mov eax, dword[ebp+16]		;arg direction in eax
+	push 12
+	push eax
+	lea eax, [ebp-12]
+	push eax
+	call memcpy
+	call vec3_normalize
+	add esp, 12
+	
+	;calculate local right with gram-schmidt
+	lea eax, [ebp-12]	;direction in eax
+	mov ecx, dword[ebp+20]	;worldup in ecx
+	lea edx, [ebp-24]	;right in edx
+	push ecx
+	push eax
+	push edx
+	call vec3_cross
+	call vec3_normalize
+	add esp, 12
+	
+	;calculate local up with gram-schmidt
+	lea eax, [ebp-12]	;direction in eax
+	lea ecx, [ebp-24]	;right in ecx
+	lea edx, [ebp-36]	;up in edx
+	push eax
+	push ecx
+	push edx
+	call vec3_cross
+	call vec3_normalize
+	add esp, 12
+	
+	;negate direction
+	lea eax, [ebp-12]	;direction in eax
+	xor dword[eax], 0x80000000
+	xor dword[eax+4], 0x80000000
+	xor dword[eax+8], 0x80000000
+	
+	;calculate rotational matrix
+	mov eax, dword[ebp+8]	;buffer in eax
+	push 64
+	push 0
+	push eax
+	call memset
+	pop eax
+	add esp, 8
+	
+	
+	lea eax, [ebp-24]	;right in eax
+	push 12
+	push eax
+	push dword[ebp+8]
+	call memcpy
+	add esp, 12
+	
+	lea eax, [ebp-36]	;up in eax
+	mov ecx, dword[ebp+8]	;buffer in ecx
+	add ecx, 16
+	push 12
+	push eax
+	push ecx
+	call memcpy
+	add esp, 12
+	
+	lea eax, [ebp-12]	;direction in eax
+	mov ecx, dword[ebp+8]	;buffer in ecx
+	add ecx, 32
+	push 12
+	push eax
+	push ecx
+	call memcpy
+	add esp, 12
+	
+	mov ecx, dword[ebp+8]
+	mov eax, dword[one]
+	mov dword[ecx+60], eax
+	
+	;copy and negate pos
+	mov eax, dword[ebp+12]
+	sub esp, 12
+	
+	mov ecx, dword[eax]
+	xor ecx, 0x80000000
+	mov dword[esp], ecx
+	
+	mov ecx, dword[eax+4]
+	xor ecx, 0x80000000
+	mov dword[esp+4], ecx
+	
+	mov ecx, dword[eax+8]
+	xor ecx, 0x80000000
+	mov dword[esp+8], ecx
+	
+	;translation
+	mov eax, esp		;-pos in eax
+	mov ecx, dword[ebp+8]	;buffer in ecx
+	push eax
+	push ecx
+	call mat4_translate
 	
 	mov esp, ebp
 	pop ebp
