@@ -1,63 +1,110 @@
+;my sources:
+;Nir Lichtman @ yt
+;croakingkero.com
+;https://gist.github.com/nikAizuddin/6fbbc703f1213ab61a8a
+
+;struct ScreenInfo{
+;	Display* display;
+;	Window window;
+;	int screenNumber;
+;}
+
 section .rodata
-	SDL_INIT_TIMER dd 0x00000001
-	SDL_INIT_AUDIO dd 0x00000010
-	SDL_INIT_VIDEO dd 0x00000020
-	SDL_INIT_EVENTS dd 0x00004000
-	
-	SDL_WINDOWPOS_CENTERED dd 0x2FFF0000
-	SDL_RENDERER_SOFTWARE dd 1
-	
-	SDL_EVENT_SIZE dd 56
-	
-	error_message db "Window wouldn't fucking open sry",10,0
-	
+	create_error_message db "Couldn't open window sry :(",10,0
+	window_title db "pee diddy",0
+
 section .text
-	extern SDL_Init
-	extern SDL_CreateWindow
-	extern SDL_CreateRenderer
-	extern SDL_RenderClear
+	extern printf
+
+	extern XOpenDisplay
+	extern XCreateSimpleWindow
+	extern XDefaultScreen
+	extern XRootWindow
+	extern XBlackPixel
+	extern XWhitePixel
+	extern XMapWindow
+	extern XStoreName
+	extern XFlush
 	
-	global window_create		;void window_create(const char* name, SDL_Window** pwindow, SDL_Renderer** prenderer)
-	global window_waitEvent		;void window_waitEvent(Event* event) //Event will be my own transformed type of SDL_Event
+	global window_create		;void window_create(ScreenInfo* buffer)
 	
 window_create:
 	push ebp
+	push esi
+	push edi
+	push ebx
 	mov ebp, esp
 	
-	mov eax, dword[SDL_INIT_TIMER]
-	or eax, dword[SDL_INIT_VIDEO]
-	or eax, dword[SDL_INIT_EVENTS]
-	;or eax, dword[SDL_INIT_AUDIO]
+	mov ebx, dword[ebp+20]		;buffer in ebx
 	
 	
-	push eax
-	call SDL_Init
+	;connect to XServer
+	push 0	;set window title
+	call XOpenDisplay
+	mov dword[ebx], eax	;save Display*
+	add esp, 4
+	cmp eax, 0
+	je _window_create_error
+	
+	;create window
+	push dword[ebx]
+	call XDefaultScreen	;retrieve default screen number for XRootWindow call
 	add esp, 4
 	
+	push eax
+	push dword[ebx]
+	call XRootWindow
+	mov esi, eax		;root window in esi
+	add esp, 8
+	
+	push 69			;placeholder for bg colour
+	push 69			;placeholder for border colour
 	push 0
-	push 600
-	push 600
-	push dword[SDL_WINDOWPOS_CENTERED]
-	push dword[SDL_WINDOWPOS_CENTERED]
-	mov eax, dword[ebp+8]
-	push eax
-	call SDL_CreateWindow
-	add esp, 24
-	mov ecx, dword[ebp+12]
-	mov dword[ecx], eax		;save pwindow
+	push dword[ebx]
+	call XBlackPixel
+	mov dword[esp+12], eax
+	call XWhitePixel
+	mov dword[esp+8], eax
+	add esp, 8
 	
-	push dword[SDL_RENDERER_SOFTWARE]
-	push -1
-	push eax
-	call SDL_CreateRenderer
+	push 1		;border width
+	push 400	;window height
+	push 400	;window width
+	push 50		;y pos
+	push 50		;x pos
+	push esi	;root window
+	push dword[ebx]	;display*
+	call XCreateSimpleWindow
+	mov dword[ebx+4], eax	;save window
+	add esp, 36
+	
+	;map window
+	push dword[ebx+4]
+	push dword[ebx]
+	call XMapWindow
+	add esp, 8
+	
+	;set window title
+	push window_title
+	push dword[ebx+4]
+	push dword[ebx]
+	call XStoreName
 	add esp, 12
-	mov ecx, dword[ebp+16]
-	mov dword[ecx], eax		;save prenderer
 	
-	push eax
-	call SDL_RenderClear
+	;flush things (probably unnecessary)
+	push dword[ebx]
+	call XFlush
 	add esp, 4
 	
+	jmp _window_create_end
+_window_create_error:
+	push create_error_message
+	call printf
+	
+_window_create_end:
 	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
 	pop ebp
 	ret
