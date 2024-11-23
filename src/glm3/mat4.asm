@@ -10,7 +10,10 @@
 section .rodata
 	print_line_format db "| %.3f %.3f %.3f %.3f |",10,0
 	print_float db "%.3f",10,0
+	half dd 0.5
 	one dd 1.0
+	two dd 2.0
+	minusOne dd -1.0
 	DEG2RAD dd 0.017453293
 
 section .text
@@ -965,6 +968,79 @@ mat4_view:
 	push eax
 	push ecx
 	call mat4_translate
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+mat4_perspective:
+	push ebp
+	mov ebp, esp
+	
+	;fill the matrix with zeros before everything else, so that it doesn't fuck up the xmm registers (because apparently it does)
+	mov eax, dword[ebp+8]
+	push 64
+	push 0
+	push eax
+	call memset
+	add esp, 12
+	
+	;calculate t (it will remain in xmm0)
+	sub esp, 4
+	movss xmm0, dword[ebp+12]
+	mulss xmm0, dword[half]
+	mulss xmm0, dword[DEG2RAD]
+	movss dword[esp], xmm0
+	fld dword[esp]
+	fptan		; ST(0): cos, ST(1): sin
+	fdivp
+	fstp dword[esp]
+	movss xmm0, dword[esp]
+	mulss xmm0, dword[ebp+20]
+	add esp, 4
+	
+	;calculate r (it will remain in xmm1)
+	movss xmm1, xmm0
+	mulss xmm1, dword[ebp+16]
+	
+	
+	;load the remaining values
+	movss xmm2, dword[ebp+20]	;near in xmm2
+	movss xmm3, dword[ebp+24]	;far in xmm3
+	
+	
+	;set the non-zero values in the matrix
+	mov eax, dword[ebp+8]		;buffer in eax
+	
+	;(0,0): near/r
+	movss xmm4, xmm2
+	divss xmm4, xmm1
+	movss dword[eax], xmm4
+	
+	;(1,1): near/t
+	movss xmm4, xmm2
+	divss xmm4, xmm0
+	movss dword[eax+20], xmm4
+	
+	;(2,2): -(far+near)/(far-near)
+	movss xmm4, xmm3
+	addss xmm4, xmm2
+	movss xmm5, xmm2
+	subss xmm5, xmm3
+	divss xmm4, xmm5
+	movss dword[eax+40], xmm4
+	
+	;(2,3): -2*far*near/(far-near)
+	movss xmm4, dword[two]
+	mulss xmm4, xmm3
+	mulss xmm4, xmm2
+	divss xmm4, xmm5
+	movss dword[eax+44], xmm4
+	
+	;(3,2): -1
+	mov ecx, dword[minusOne]
+	mov dword[eax+56], ecx
 	
 	mov esp, ebp
 	pop ebp
