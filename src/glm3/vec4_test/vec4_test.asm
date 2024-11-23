@@ -134,9 +134,10 @@ _start:
 	push eax
 	lea eax, [ebp-16]
 	push eax
+	push eax
 	call vec4_scale
 	call vec4_print
-	add esp, 8
+	add esp, 12
 	
 	
 	;dot product test

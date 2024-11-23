@@ -13,6 +13,8 @@ section .rodata
 	view_message db "mat1 is now a view matrix with pos=(3.1, 83.1, -2.0), direction=(-23.0, 0.4, 2.0), worldUp=(0.0, 1.0, 0.0)",10,0
 	perspective_message db "mat1 is now a perspective matrix with fov=69.0, aspectXY=1.5, near=0.1, far=100.0",10,0
 	ortho_message db "mat1 is now an orthogonal proj matrix with the values -69,69,-42,42,-6.9,6.9",10,0
+	mulWithMat_message db "mat2*(2.0, 3.0, 0.69, 1.5):",10,0
+	
 	
 section .data
 	init_value dd 0.69
@@ -61,6 +63,9 @@ section .text
 	extern mat4_view
 	extern mat4_perspective
 	extern mat4_ortho
+	
+	extern vec4_mulWithMat
+	extern vec4_print
 	
 	global _start
 _start:
@@ -298,6 +303,29 @@ _start:
 	call mat4_ortho
 	call mat4_print
 	add esp, 28
+	
+	;mulWithMat test
+	push mulWithMat_message
+	call printf
+	add esp, 4
+	
+	sub esp, 16		;vector
+	mov eax, scale_values
+	mov ecx, esp
+	push 16
+	push eax
+	push ecx
+	call memcpy
+	add esp, 12
+	
+	lea eax, [ebp-128]
+	push eax
+	call mat4_print
+	lea ecx, [esp+4]
+	push ecx
+	call vec4_mulWithMat
+	call vec4_print
+	add esp, 24
 	
 	
 	mov esp, ebp

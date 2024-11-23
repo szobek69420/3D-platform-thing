@@ -21,11 +21,12 @@ section .text
 	global vec4_initUniform		;void vec4_initUniform(vec4* buffer, float value)
 	global vec4_add			;void vec4_add(vec4* buffer, vec4* a, vec4*b)		//buffer may point to a or b
 	global vec4_sub			;void vec4_sub(vec4* buffer, vec4* a, vec4*b)		//buffer may point to a or b
-	global vec4_scale		;void vec4_scale(vec4* buffer, float value)
+	global vec4_scale		;void vec4_scale(vec4* buffer, vec4* vec, float value)	//buffer may point to vec
 	global vec4_dot			;float vec4_dot(vec4* a, vec4* b)		//pushes the result onto the FPU stack
 	global vec4_sqrMagnitude	;float vec4_sqrMagnitude(vec4* vec)		//pushes the result onto the FPU stack
 	global vec4_magnitude		;float vec4_magnitude(vec4* vec)		//pushes the result onto the FPU stack
 	global vec4_normalize		;void vec4_normalize(vec4* vec)
+	global vec4_mulWithMat		;void vec4_mulWithMat(vec4* vec, mat4* mat)
 	
 vec4_print:
 	push ebp
@@ -104,14 +105,15 @@ vec4_sub:
 	ret
 	
 vec4_scale:
-	mov eax, dword[esp+4]		;&buffer in eax
-	movss xmm0, dword[esp+8]	;value in xmm0
+	mov ecx, dword[esp+4]		;buffer in ecx
+	mov eax, dword[esp+8]		;vec in eax
+	movss xmm0, dword[esp+12]	;value in xmm0
 	movss xmm1, xmm0		;value in xmm1
 	
 	shufps	xmm1, xmm0, 0		;all slots in xmm1 is filled with value
 	movups xmm0, [eax]		;vec in xmm0
 	mulps xmm0, xmm1		;multiplication
-	movups [eax], xmm0
+	movups [ecx], xmm0
 	
 	ret
 	
@@ -185,4 +187,36 @@ normalize_error_report:
 normalize_done:
 	mov esp, ebp
 	pop ebp
+	ret
+	
+vec4_mulWithMat:
+	mov eax, dword[esp+4]		;vec in eax
+	mov ecx, dword[esp+8]		;mat in ecx
+	
+	movups xmm0, [eax]		;vec in xmm0
+	
+	movups xmm1, [ecx]
+	mulps xmm1, xmm0
+	haddps xmm1, xmm1
+	haddps xmm1, xmm1
+	movss dword[eax], xmm1
+	
+	movups xmm1, [ecx+16]
+	mulps xmm1, xmm0
+	haddps xmm1, xmm1
+	haddps xmm1, xmm1
+	movss dword[eax+4], xmm1
+	
+	movups xmm1, [ecx+32]
+	mulps xmm1, xmm0
+	haddps xmm1, xmm1
+	haddps xmm1, xmm1
+	movss dword[eax+8], xmm1
+	
+	movups xmm1, [ecx+48]
+	mulps xmm1, xmm0
+	haddps xmm1, xmm1
+	haddps xmm1, xmm1
+	movss dword[eax+12], xmm1
+	
 	ret

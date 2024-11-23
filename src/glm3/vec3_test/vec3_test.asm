@@ -130,6 +130,7 @@ _start:
 	push dword[eax]
 	lea eax, [ebp-24]
 	push eax
+	push eax
 	call vec3_scale
 	add esp,8
 	

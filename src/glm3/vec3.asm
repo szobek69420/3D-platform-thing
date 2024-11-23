@@ -24,7 +24,7 @@ section .text
 	global vec3_sub			;void vec3_sub(vec3* buffer, vec3* a, vec3* b)			//buffer may point to a or b
 	global vec3_dot			;void vec3_dot(vec3* a, vec3* b)			//returns the value on the FPU stack
 	global vec3_cross		;void vec3_cross(vec3* buffer, vec3* a, vec3* b)	//buffer may point to a or b
-	global vec3_scale		;void vec3_scale(vec3* vec, float factor)
+	global vec3_scale		;void vec3_scale(vec3* buffer, vec3* vec, float factor)	//buffer may point to vec
 	global vec3_sqrMagnitude	;float vec3_sqrMagnitude(vec3* vec)			//returns the value on the FPU stack
 	global vec3_magnitude		;float vec3_magnitude(vec3* vec)			//returns the value on the FPU stack
 	global vec3_normalize		;void vec3_normalize(vec3* vec)	
@@ -227,21 +227,22 @@ vec3_scale:
 	push ebp
 	mov ebp, esp
 	
-	mov eax, dword[ebp+8]		;&vec in eax
+	mov ecx, dword[ebp+8]		;buffer in ecx
+	mov eax, dword[ebp+12]		;vec in eax
 	
-	movss xmm1, dword[ebp+12]	;scale factor in xmm1
+	movss xmm1, dword[ebp+16]	;scale factor in xmm1
 	
 	movss xmm0, dword[eax]
 	mulss xmm0, xmm1
-	movss dword[eax], xmm0
+	movss dword[ecx], xmm0
 	
 	movss xmm0, dword[eax+4]
 	mulss xmm0, xmm1
-	movss dword[eax+4], xmm0
+	movss dword[ecx+4], xmm0
 	
 	movss xmm0, dword[eax+8]
 	mulss xmm0, xmm1
-	movss dword[eax+8], xmm0
+	movss dword[ecx+8], xmm0
 	
 	mov esp, ebp
 	pop ebp
