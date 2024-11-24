@@ -7,12 +7,33 @@
 ;struct ScreenInfo{
 ;	Display* display;
 ;	Window window;
-;	int screenNumber;
+;}
+
+;struct Event{
+;	int type;
+;	union{
+;	MouseMotionEvent;
+;	}
+;}
+
+;struct MouseMotionEvent{
+;	int x, y;
 ;}
 
 section .rodata
 	create_error_message db "Couldn't open window sry :(",10,0
 	window_title db "pee diddy",0
+	
+	;x11 masks and event types
+	PointerMotionMask dd 0x40
+	MotionNotify dd 0x6
+	
+	;my event types
+	NoEvent dd 0
+	MouseMotionEvent dd 1
+	
+	global NoEvent
+	global MouseMotionEvent
 
 section .text
 	extern printf
@@ -31,8 +52,15 @@ section .text
 	extern XDestroyWindow
 	extern XCloseDisplay
 	
+	extern XSelectInput
+	extern XPending
+	extern XNextEvent
+	
 	global window_create		;void window_create(ScreenInfo* buffer)
-	global window_destroy		;void window_destroy(ScreenInfo* window);
+	global window_destroy		;void window_destroy(ScreenInfo* window)
+	
+	global window_pendingEvent	;int window_pendingEvent(ScreenInfo* window);		//returns the number of pending events
+	global window_consumeEvent	;void window_pendingEvent(ScreenInfo* window, Event* buffer)
 	
 window_create:
 	push ebp
@@ -90,6 +118,15 @@ window_create:
 	call XMapWindow
 	add esp, 8
 	
+	;set event mask
+	mov eax, dword[PointerMotionMask]
+	push eax
+	push dword[ebx+4]
+	push dword[ebx]
+	call XSelectInput
+	add esp, 12
+	
+	
 	;set window title
 	push window_title
 	push dword[ebx+4]
@@ -128,6 +165,72 @@ window_destroy:
 	call XDestroyWindow
 	call XCloseDisplay
 	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+window_pendingEvent:
+	mov eax, dword[esp+4]
+	push dword[eax]
+	call XPending
+	add esp, 4
+	ret
+	
+	
+window_consumeEvent:
+	push ebp
+	mov ebp, esp
+	
+	;check if there are pending events
+	mov eax, dword[ebp+8]
+	push dword[eax]
+	call XPending
+	add esp, 4
+	cmp eax, 0
+	jg _consumeEvent_eventfulness
+	
+	mov eax, dword[NoEvent]
+	mov ecx, dword[ebp+12]
+	mov dword[ecx], eax		;set the event type to noevent
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+_consumeEvent_eventfulness:
+	
+	sub esp, 96		;allocate XEvent
+	
+	;call XNextEvent
+	mov eax, dword[ebp+8]
+	mov ecx, esp
+	
+	push ecx
+	push dword[eax]
+	call XNextEvent
+	add esp, 8
+	
+	;check for type
+	mov eax, dword[ebp-96]
+	mov ecx, dword[ebp+12]		;buffer in ecx
+	
+	cmp eax, dword[MotionNotify]
+	jne _consumeEvent_not_mouse_motion_event
+	
+	mov edx, dword[MouseMotionEvent]
+	mov dword[ecx], edx
+	
+	mov edx, dword[ebp-64]		;.xmotion.x
+	mov dword[ecx+4], edx
+	
+	mov edx, dword[ebp-60]		;.xmotion.y
+	mov dword[ecx+8], edx
+	
+	jmp _consumeEvent_event_check_done
+_consumeEvent_not_mouse_motion_event:
+	
+_consumeEvent_event_check_done:
 	mov esp, ebp
 	pop ebp
 	ret
