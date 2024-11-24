@@ -1,5 +1,6 @@
 ;my sources:
 ;Nir Lichtman @ yt
+;Future Tech Labs @ yt
 ;croakingkero.com
 ;https://gist.github.com/nikAizuddin/6fbbc703f1213ab61a8a
 
@@ -26,7 +27,12 @@ section .text
 	extern XStoreName
 	extern XFlush
 	
+	extern XUnmapWindow
+	extern XDestroyWindow
+	extern XCloseDisplay
+	
 	global window_create		;void window_create(ScreenInfo* buffer)
+	global window_destroy		;void window_destroy(ScreenInfo* window);
 	
 window_create:
 	push ebp
@@ -106,5 +112,22 @@ _window_create_end:
 	pop ebx
 	pop edi
 	pop esi
+	pop ebp
+	ret
+	
+	
+window_destroy:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]	;window in eax
+	
+	push dword[eax+8]
+	push dword[eax]
+	call XUnmapWindow
+	call XDestroyWindow
+	call XCloseDisplay
+	
+	mov esp, ebp
 	pop ebp
 	ret
