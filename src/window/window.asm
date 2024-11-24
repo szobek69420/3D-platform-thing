@@ -24,6 +24,10 @@
 
 ;struct WindowCloseEvent{}
 
+;struct KeyPressEvent and KeyReleaseEvent{
+;	int keyCode;
+;}
+
 section .rodata
 	create_error_message db "Couldn't open window sry :(",10,0
 	window_title db "pee diddy",0
@@ -37,14 +41,24 @@ section .rodata
 	DestroyNotify dd 0x11
 	ClientMessage dd 0x21
 	
+	KeyPressMask dd 0x1
+	KeyPress dd 0x2
+	
+	KeyReleaseMask dd 0x2
+	KeyRelease dd 0x3
+	
 	;my event types
 	NoEvent dd 0
 	MouseMotionEvent dd 1
 	WindowCloseEvent dd 2
+	KeyPressEvent dd 3
+	KeyReleaseEvent dd 4
 	
 	global NoEvent
 	global MouseMotionEvent
 	global WindowCloseEvent
+	global KeyPressEvent
+	global KeyReleaseEvent
 
 section .text
 	extern printf
@@ -132,6 +146,7 @@ window_create:
 	add esp, 8
 	
 	;set wm protocol to detect window close
+	jmp _create_skip_wm_protocol
 	push 0
 	push atom_type
 	push dword[ebx]
@@ -146,10 +161,13 @@ window_create:
 	push dword[ebx]
 	call XSetWMProtocols
 	add esp, 16
+_create_skip_wm_protocol:
 	
 	;set event mask
 	mov eax, dword[PointerMotionMask]
 	or eax, dword[StructureNotifyMask]
+	or eax, dword[KeyPressMask]
+	or eax, dword[KeyReleaseMask]
 	
 	push eax
 	push dword[ebx+4]
@@ -271,6 +289,27 @@ _consumeEvent_not_window_close_event:
 	jmp _consumeEvent_event_check_done
 _consumeEvent_not_mouse_motion_event:
 	
+	cmp eax, dword[KeyPress]
+	jne _consumeEvent_not_key_press_event
+	
+	mov edx, dword[KeyPressEvent]
+	mov dword[ecx], edx
+	
+	mov edx, dword[ebp-44]		;.xkey.keycode
+	mov dword[ecx+4], edx
+	
+_consumeEvent_not_key_press_event:
+
+	cmp eax, dword[KeyRelease]
+	jne _consumeEvent_not_key_release_event
+	
+	mov edx, dword[KeyReleaseEvent]
+	mov dword[ecx], edx
+	
+	mov edx, dword[ebp-44]		;.xkey.keycode
+	mov dword[ecx+4], edx
+	
+_consumeEvent_not_key_release_event:
 	
 _consumeEvent_event_check_done:
 	mov esp, ebp
