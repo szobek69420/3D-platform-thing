@@ -1,6 +1,8 @@
 section .rodata
 	print_mouse_coordinates db "mouse coords: %d %d",10,0
-	goodbye_message db "bye bozo",10,0
+	print_window_size db "window size: %d %d",10,0
+	print_key db "%s",10,0
+	print_button db "%d",10,0
 
 section .text
 	extern window_create
@@ -8,9 +10,14 @@ section .text
 	extern window_consumeEvent
 	extern printf
 	
+	extern NoEvent
 	extern WindowCloseEvent
 	extern MouseMotionEvent
-	extern NoEvent
+	extern KeyPressEvent
+	extern KeyReleaseEvent
+	extern WindowResizeEvent
+	extern MousePressEvent
+	extern MouseReleaseEvent
 	
 	global _start:
 _start:
@@ -41,20 +48,18 @@ _start_endless_loop:
 	add esp, 8
 	
 	mov eax, dword[ebp-24]
-	cmp eax, dword[WindowCloseEvent]
+	cmp eax, dword[MouseReleaseEvent]
 	jne _start_endless_loop_continue
 	
-	push goodbye_message
+	lea ecx, [ebp-24]
+	push dword[ecx+4]
+	push print_button
 	call printf
-	add esp, 4
-	jmp _start_endless_loop_end
+	add esp, 8
 	
 _start_endless_loop_continue:
 	jmp _start_endless_loop
 _start_endless_loop_end:
-	
-	push goodbye_message
-	call printf
 	
 	mov esp, ebp
 	pop ebp

@@ -13,8 +13,13 @@
 ;struct Event{
 ;	int type;
 ;	union{
-;	MouseMotionEvent;
-;	WindowCloseEvent;
+;		MouseMotionEvent;
+;		WindowCloseEvent;
+;		KeyPressEvent;
+;		KeyReleaseEvent;
+;		WindowResizeEvent;
+;		MousePressEvent;
+;		MouseReleaseEvent;
 ;	}
 ;}
 
@@ -25,7 +30,16 @@
 ;struct WindowCloseEvent{}
 
 ;struct KeyPressEvent and KeyReleaseEvent{
-;	int keyCode;
+;	char* keyString;
+;}
+
+;struct WindowResizeEvent{
+;	int width;
+;	int height;
+;}
+
+;struct MousePressEvent and MouseReleaseEvent{
+;	int button;
 ;}
 
 section .rodata
@@ -47,18 +61,31 @@ section .rodata
 	KeyReleaseMask dd 0x2
 	KeyRelease dd 0x3
 	
+	ButtonPressMask dd 0x4
+	ButtonPress dd 0x4
+	ButtonReleaseMask dd 0x8
+	ButtonRelease dd 0x5
+	
+	ConfigureNotify dd 0x16
+	
 	;my event types
 	NoEvent dd 0
 	MouseMotionEvent dd 1
 	WindowCloseEvent dd 2
 	KeyPressEvent dd 3
 	KeyReleaseEvent dd 4
+	WindowResizeEvent dd 5		;window resize event is also generated when the window is moved
+	MousePressEvent dd 6
+	MouseReleaseEvent dd 7		;mouseevents detect scrolls too
 	
 	global NoEvent
 	global MouseMotionEvent
 	global WindowCloseEvent
 	global KeyPressEvent
 	global KeyReleaseEvent
+	global WindowResizeEvent
+	global MousePressEvent
+	global MouseReleaseEvent
 
 section .text
 	extern printf
@@ -82,6 +109,8 @@ section .text
 	extern XSelectInput
 	extern XPending
 	extern XNextEvent
+	extern XKeycodeToKeysym
+	extern XKeysymToString
 	
 	global window_create		;void window_create(ScreenInfo* buffer)
 	global window_destroy		;void window_destroy(ScreenInfo* window)
@@ -168,6 +197,8 @@ _create_skip_wm_protocol:
 	or eax, dword[StructureNotifyMask]
 	or eax, dword[KeyPressMask]
 	or eax, dword[KeyReleaseMask]
+	or eax, dword[ButtonPressMask]
+	or eax, dword[ButtonReleaseMask]
 	
 	push eax
 	push dword[ebx+4]
@@ -273,6 +304,21 @@ _consumeEvent_eventfulness:
 	
 	jmp _consumeEvent_event_check_done
 _consumeEvent_not_window_close_event:
+
+	cmp eax, dword[ConfigureNotify]
+	jne _consumeEvent_not_window_resize_event
+	
+	mov edx, dword[WindowResizeEvent]
+	mov dword[ecx], edx
+	
+	mov edx, dword[ebp-64]		;.xconfigure.width
+	mov dword[ecx+4], edx
+	
+	mov edx, dword[ebp-60]		;.xconfigure.height
+	mov dword[ecx+8], edx
+	
+	jmp _consumeEvent_event_check_done
+_consumeEvent_not_window_resize_event:
 	
 	cmp eax, dword[MotionNotify]
 	jne _consumeEvent_not_mouse_motion_event
@@ -288,16 +334,36 @@ _consumeEvent_not_window_close_event:
 	
 	jmp _consumeEvent_event_check_done
 _consumeEvent_not_mouse_motion_event:
-	
+
 	cmp eax, dword[KeyPress]
 	jne _consumeEvent_not_key_press_event
 	
 	mov edx, dword[KeyPressEvent]
 	mov dword[ecx], edx
 	
-	mov edx, dword[ebp-44]		;.xkey.keycode
-	mov dword[ecx+4], edx
+	;convert keycode to ascii
+	push eax
+	push ecx
 	
+	mov eax, dword[ebp+8]		;screeninfo
+	mov edx, dword[ebp-44]		;.xkey.keycode
+	push 0
+	push edx
+	push dword[eax]
+	call XKeycodeToKeysym
+	add esp, 12
+	
+	push eax
+	call XKeysymToString
+	mov edx, eax
+	add esp, 4
+	
+	pop ecx
+	pop eax
+	
+	mov dword[ecx+4], edx		;save character
+	
+	jmp _consumeEvent_event_check_done
 _consumeEvent_not_key_press_event:
 
 	cmp eax, dword[KeyRelease]
@@ -306,10 +372,54 @@ _consumeEvent_not_key_press_event:
 	mov edx, dword[KeyReleaseEvent]
 	mov dword[ecx], edx
 	
+	;convert keycode to ascii
+	push eax
+	push ecx
+	
+	mov eax, dword[ebp+8]		;screeninfo
 	mov edx, dword[ebp-44]		;.xkey.keycode
+	push 0
+	push edx
+	push dword[eax]
+	call XKeycodeToKeysym
+	add esp, 12
+	
+	push eax
+	call XKeysymToString
+	mov edx, eax
+	add esp, 4
+	
+	pop ecx
+	pop eax
+	
+	mov dword[ecx+4], edx		;save character
+	
+	jmp _consumeEvent_event_check_done
+_consumeEvent_not_key_release_event:
+
+	cmp eax, dword[ButtonPress]
+	jne _consumeEvent_not_mouse_press_event
+	
+	mov edx, dword[MousePressEvent]
+	mov dword[ecx], edx
+	
+	mov edx, dword[ebp-44]		;.xbutton.button
 	mov dword[ecx+4], edx
 	
-_consumeEvent_not_key_release_event:
+	jmp _consumeEvent_event_check_done
+_consumeEvent_not_mouse_press_event:
+
+	cmp eax, dword[ButtonRelease]
+	jne _consumeEvent_not_mouse_release_event
+	
+	mov edx, dword[MouseReleaseEvent]
+	mov dword[ecx], edx
+	
+	mov edx, dword[ebp-44]		;.xbutton.button
+	mov dword[ecx+4], edx
+	
+	jmp _consumeEvent_event_check_done
+_consumeEvent_not_mouse_release_event:
 	
 _consumeEvent_event_check_done:
 	mov esp, ebp
