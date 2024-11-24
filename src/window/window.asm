@@ -7,12 +7,14 @@
 ;struct ScreenInfo{
 ;	Display* display;
 ;	Window window;
+;	int deleteAtom;
 ;}
 
 ;struct Event{
 ;	int type;
 ;	union{
 ;	MouseMotionEvent;
+;	WindowCloseEvent;
 ;	}
 ;}
 
@@ -20,20 +22,29 @@
 ;	int x, y;
 ;}
 
+;struct WindowCloseEvent{}
+
 section .rodata
 	create_error_message db "Couldn't open window sry :(",10,0
 	window_title db "pee diddy",0
+	atom_type db "WM_DELETE_WINDOW",0
 	
 	;x11 masks and event types
 	PointerMotionMask dd 0x40
 	MotionNotify dd 0x6
 	
+	StructureNotifyMask dd 0x20000
+	DestroyNotify dd 0x11
+	ClientMessage dd 0x21
+	
 	;my event types
 	NoEvent dd 0
 	MouseMotionEvent dd 1
+	WindowCloseEvent dd 2
 	
 	global NoEvent
 	global MouseMotionEvent
+	global WindowCloseEvent
 
 section .text
 	extern printf
@@ -46,6 +57,8 @@ section .text
 	extern XWhitePixel
 	extern XMapWindow
 	extern XStoreName
+	extern XInternAtom
+	extern XSetWMProtocols
 	extern XFlush
 	
 	extern XUnmapWindow
@@ -118,8 +131,26 @@ window_create:
 	call XMapWindow
 	add esp, 8
 	
+	;set wm protocol to detect window close
+	push 0
+	push atom_type
+	push dword[ebx]
+	call XInternAtom
+	add esp, 12
+	mov dword[ebx+8],eax
+	
+	lea eax, [ebx+8]
+	push 1
+	push eax
+	push dword[ebx+4]
+	push dword[ebx]
+	call XSetWMProtocols
+	add esp, 16
+	
 	;set event mask
 	mov eax, dword[PointerMotionMask]
+	or eax, dword[StructureNotifyMask]
+	
 	push eax
 	push dword[ebx+4]
 	push dword[ebx]
@@ -212,8 +243,18 @@ _consumeEvent_eventfulness:
 	add esp, 8
 	
 	;check for type
-	mov eax, dword[ebp-96]
+	mov eax, dword[ebp-96]		;event.type in eax
 	mov ecx, dword[ebp+12]		;buffer in ecx
+	
+	
+	cmp eax, dword[DestroyNotify]
+	jne _consumeEvent_not_window_close_event
+	
+	mov edx, dword[WindowCloseEvent]
+	mov dword[ecx], edx
+	
+	jmp _consumeEvent_event_check_done
+_consumeEvent_not_window_close_event:
 	
 	cmp eax, dword[MotionNotify]
 	jne _consumeEvent_not_mouse_motion_event
@@ -229,6 +270,7 @@ _consumeEvent_eventfulness:
 	
 	jmp _consumeEvent_event_check_done
 _consumeEvent_not_mouse_motion_event:
+	
 	
 _consumeEvent_event_check_done:
 	mov esp, ebp
