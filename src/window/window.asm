@@ -5,10 +5,20 @@
 ;https://gist.github.com/nikAizuddin/6fbbc703f1213ab61a8a
 
 ;struct ScreenInfo{
-;	Display* display;
-;	Window window;
-;	int deleteAtom;
-;}
+;	Display* display;		0
+;	Window window;			4
+;	int deleteAtom;			8
+;	Window root;			12
+;	int screenNumber;		16
+;	GC defaultGraphicsContext;	20
+;	Visual* defaultVisual		24
+;	char* drawbuffer		28
+;	char* scalebuffer		32
+;	XImage* image			36
+;	int windowWidth			40
+;	int windowHeight		44
+;	int defaultDepth		48
+;}					52
 
 ;struct Event{
 ;	int type;
@@ -43,6 +53,17 @@
 ;}
 
 section .rodata
+	FRAMEBUFFER_WIDTH dd 720
+	FRAMEBUFFER_HEIGHT dd 480
+	FRAMEBUFFER_BYTE_COUNT dd 1382400	;720*480*4
+	global FRAMEBUFFER_WIDTH
+	global FRAMEBUFFER_HEIGHT
+	global FRAMEBUFFER_BYTE_COUNT
+	
+	INITIAL_WINDOW_WIDTH dd 800
+	INITIAL_WINDOW_HEIGHT dd 600
+	INITIAL_WINDOW_BYTE_COUNT dd 1920000
+
 	create_error_message db "Couldn't open window sry :(",10,0
 	window_title db "pee diddy",0
 	atom_type db "WM_DELETE_WINDOW",0
@@ -89,6 +110,9 @@ section .rodata
 
 section .text
 	extern printf
+	extern malloc
+	extern free
+	extern memset
 
 	extern XOpenDisplay
 	extern XCreateSimpleWindow
@@ -101,6 +125,12 @@ section .text
 	extern XInternAtom
 	extern XSetWMProtocols
 	extern XFlush
+	extern XDefaultVisual
+	extern XDefaultGC
+	extern XDefaultDepth
+	extern XCreateImage
+	extern XDestroyImage
+	extern XPutImage
 	
 	extern XUnmapWindow
 	extern XDestroyWindow
@@ -117,6 +147,9 @@ section .text
 	
 	global window_pendingEvent	;int window_pendingEvent(ScreenInfo* window);		//returns the number of pending events
 	global window_consumeEvent	;void window_pendingEvent(ScreenInfo* window, Event* buffer)
+	global window_onResize		;void window_onResize(ScreenInfo* window);
+	
+	global window_showFrame		;void window_showFrame(ScreenInfo* window);
 	
 window_create:
 	push ebp
@@ -126,7 +159,7 @@ window_create:
 	mov ebp, esp
 	
 	mov ebx, dword[ebp+20]		;buffer in ebx
-	
+
 	
 	;connect to XServer
 	push 0	;set window title
@@ -139,12 +172,14 @@ window_create:
 	;create window
 	push dword[ebx]
 	call XDefaultScreen	;retrieve default screen number for XRootWindow call
+	mov dword[ebx+16], eax	;save screen number
 	add esp, 4
 	
 	push eax
 	push dword[ebx]
 	call XRootWindow
 	mov esi, eax		;root window in esi
+	mov dword[ebx+12], eax	;save root window
 	add esp, 8
 	
 	push 69			;placeholder for bg colour
@@ -157,15 +192,15 @@ window_create:
 	mov dword[esp+8], eax
 	add esp, 8
 	
-	push 1		;border width
-	push 400	;window height
-	push 400	;window width
-	push 50		;y pos
-	push 50		;x pos
-	push esi	;root window
-	push dword[ebx]	;display*
+	push 1					;border width
+	push dword[INITIAL_WINDOW_HEIGHT]	;window height
+	push dword[INITIAL_WINDOW_WIDTH]	;window width
+	push 50					;y pos
+	push 50					;x pos
+	push esi				;root window
+	push dword[ebx]				;display*
 	call XCreateSimpleWindow
-	mov dword[ebx+4], eax	;save window
+	mov dword[ebx+4], eax			;save window
 	add esp, 36
 	
 	;map window
@@ -205,6 +240,35 @@ _create_skip_wm_protocol:
 	push dword[ebx]
 	call XSelectInput
 	add esp, 12
+	
+	;get graphics context ,visual, default depth
+	push dword[ebx+16]	;screen number
+	push dword[ebx]		;display
+	call XDefaultGC
+	mov dword[ebx+20], eax	;save GC
+	call XDefaultVisual
+	mov dword[ebx+24], eax	;save Visual
+	call XDefaultDepth
+	mov dword[ebx+48], eax	;save default depth
+	add esp, 8
+	
+	;alloc framebuffer and set width, height
+	push dword[FRAMEBUFFER_BYTE_COUNT]
+	call malloc
+	mov dword[ebx+28], eax		;save framebuffer
+	add esp ,4
+	
+	mov dword[ebx+32], 0		;zero screen buffer, so that window_onResize doesn't try to delete it
+	
+	mov eax, dword[INITIAL_WINDOW_WIDTH]
+	mov dword[ebx+40], eax
+	mov eax, dword[INITIAL_WINDOW_HEIGHT]
+	mov dword[ebx+44], eax
+	
+	;call window_onResize
+	push ebx
+	call window_onResize
+	add esp, 4
 	
 	
 	;set window title
@@ -423,5 +487,98 @@ _consumeEvent_not_mouse_release_event:
 	
 _consumeEvent_event_check_done:
 	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+window_showFrame:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	mov ebx, dword[ebp+20]		;window in ebx
+	
+	;fill up the framebuffer as a test
+	mov ecx, dword[ebx+32]
+	mov edx, dword[INITIAL_WINDOW_BYTE_COUNT]
+	shr edx, 2
+	dec edx
+_fill_loop_start:
+	mov dword[ecx+4*edx], 0xFFFF0000
+	dec edx
+	cmp edx, 0
+	jge _fill_loop_start
+	
+	;put image
+	push dword[ebx+44]
+	push dword[ebx+40]
+	push 0
+	push 0
+	push 0
+	push 0
+	push dword[ebx+36]
+	push dword[ebx+20]
+	push dword[ebx+4]
+	push dword[ebx]
+	call XPutImage
+	add esp, 40
+	
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+	
+	
+window_onResize:
+	push ebp
+	push ebx
+	mov ebp, esp
+	
+	mov ebx, dword[ebp+12]		;window in ebx
+	
+	;delete previous values
+	mov eax, dword[ebx+32]
+	cmp eax, 0
+	je _onResize_no_dealloc
+	
+	push dword[ebx+36]
+	call XDestroyImage
+	add esp, 4
+	push dword[ebx+32]
+	call free
+	add esp, 4
+_onResize_no_dealloc:
+	
+	;allocate the new scale buffer
+	mov eax, dword[ebx+40]
+	imul eax, dword[ebx+44]
+	imul eax, 4
+	push eax
+	call malloc
+	mov dword[ebx+32], eax	;save new data
+	add esp, 4
+	
+	;create new image
+	push 0
+	push 32
+	push dword[ebx+44]
+	push dword[ebx+40]
+	push dword[ebx+32]
+	push 0
+	push 0x2		;ZPixmap
+	push dword[ebx+48]
+	push dword[ebx+24]
+	push dword[ebx]
+	call XCreateImage
+	mov dword[ebx+36], eax	;save image
+	add esp, 40
+	
+	mov esp, ebp
+	pop ebx
 	pop ebp
 	ret
