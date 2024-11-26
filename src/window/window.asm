@@ -118,6 +118,7 @@ section .text
 	extern malloc
 	extern free
 	extern memset
+	extern memcpy
 
 	extern XOpenDisplay
 	extern XCreateSimpleWindow
@@ -505,16 +506,66 @@ window_showFrame:
 	
 	mov ebx, dword[ebp+20]		;window in ebx
 	
-	;fill up the framebuffer as a test
-	mov ecx, dword[ebx+32]
-	mov edx, dword[INITIAL_WINDOW_BYTE_COUNT]
-	shr edx, 2
-	dec edx
-_fill_loop_start:
-	mov dword[ecx+4*edx], 0xFFFF0000
-	dec edx
-	cmp edx, 0
-	jge _fill_loop_start
+	;fill up the draw buffer as a test
+	mov eax, dword[ebx+28]
+	mov edi, dword[FRAMEBUFFER_HEIGHT]
+_showFrame_test_fill_outer_loop_start:
+	mov esi, dword[FRAMEBUFFER_WIDTH]
+_showFrame_test_fill_inner_loop_start:
+	mov ecx, esi
+	shr ecx, 2
+	or ecx, 0xFF000000
+	mov dword[eax], ecx
+	
+	add eax, 4
+	dec esi
+	cmp esi, 0
+	jg _showFrame_test_fill_inner_loop_start
+	dec edi
+	cmp edi, 0
+	jg _showFrame_test_fill_outer_loop_start
+	
+	;copy the draw buffer into the scalebuffer
+	push dword[FRAMEBUFFER_WIDTH]
+	shl dword[esp], 2		;bytecount per line in the draw buffer
+	
+	mov eax, dword[ebx+40]
+	shl eax, 1
+	add eax, dword[ebx+52]
+	push eax			;the end pointer of the columnIndexBuffer
+	
+	mov eax, dword[ebx+44]
+	shl eax, 1
+	add eax, dword[ebx+56]
+	push eax			;the end pointer of the lineIndexBuffer
+	
+	
+	mov eax, dword[ebx+32]			;current pixel in the scale bufffer
+	
+	mov edi, dword[ebx+56]			;the index of the current line
+_showFrame_copy_outer_loop_start:
+	xor ecx, ecx
+	mov cx, word[edi]
+	imul ecx, dword[esp+8]
+	add ecx, dword[ebx+28]
+	
+	mov esi, dword[ebx+52]			;the index of the current column
+_showFrame_copy_inner_loop_start:
+	
+	xor edx, edx
+	mov dx, word[esi]
+	mov edx, dword[ecx+4*edx]
+	mov dword[eax], edx
+	
+	add eax, 4
+	add esi, 2
+	cmp esi, dword[esp+4]
+	jl _showFrame_copy_inner_loop_start
+	
+	add edi, 2
+	cmp edi, dword[esp]
+	jl _showFrame_copy_outer_loop_start
+	add esp, 12
 	
 	;put image
 	push dword[ebx+44]
@@ -555,13 +606,13 @@ window_onResize:
 	call XDestroyImage
 	add esp, 4
 	
-	push dword[ebx+32]
-	call free
+	;push dword[ebx+32]
+	;call free		;XDestroyImage also frees ximage->data, so the scaleBuffer
 	push dword[ebx+52]
 	call free
 	push dword[ebx+56]
 	call free
-	add esp, 12
+	add esp, 8
 	
 _onResize_no_dealloc:
 	

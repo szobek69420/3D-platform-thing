@@ -9,6 +9,7 @@ section .text
 	extern window_pendingEvent
 	extern window_consumeEvent
 	extern window_showFrame
+	extern window_onResize
 	extern printf
 	
 	extern NoEvent
@@ -53,15 +54,29 @@ _start_endless_loop:
 	
 	mov eax, dword[ebp-72]
 	cmp eax, dword[MouseReleaseEvent]
-	jne _start_endless_loop_no_event
+	jne _start_endless_loop_no_mouse_event
 	
-
 	push dword[ebp-76]
 	push print_button
 	call printf
 	add esp, 8
 	
 	mov dword[ebp-76],0
+	jmp _start_endless_loop_no_event
+	
+_start_endless_loop_no_mouse_event:
+	cmp eax, dword[WindowResizeEvent]
+	jne _start_endless_loop_no_event
+	
+	lea eax, [ebp-60]
+	mov ecx, dword[ebp-68]
+	mov dword[eax+40], ecx
+	mov ecx, dword[ebp-64]
+	mov dword[eax+44], ecx
+	
+	push eax
+	call window_onResize
+	add esp, 4
 	
 _start_endless_loop_no_event:
 	lea ecx, [ebp-60]
