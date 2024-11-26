@@ -18,7 +18,9 @@
 ;	int windowWidth			40
 ;	int windowHeight		44
 ;	int defaultDepth		48
-;}					52
+;	short* columnOffsetInFBO	52
+;	short* lineOffsetInFBO		56	;tells from which line of the drawBuffer the current line of the scaleBuffer should be sampled from
+;}					60
 
 ;struct Event{
 ;	int type;
@@ -65,8 +67,11 @@ section .rodata
 	INITIAL_WINDOW_BYTE_COUNT dd 1920000
 
 	create_error_message db "Couldn't open window sry :(",10,0
+	print_int db "%d ",0
 	window_title db "pee diddy",0
 	atom_type db "WM_DELETE_WINDOW",0
+	
+	ZERO dd 0.0
 	
 	;x11 masks and event types
 	PointerMotionMask dd 0x40
@@ -549,9 +554,15 @@ window_onResize:
 	push dword[ebx+36]
 	call XDestroyImage
 	add esp, 4
+	
 	push dword[ebx+32]
 	call free
-	add esp, 4
+	push dword[ebx+52]
+	call free
+	push dword[ebx+56]
+	call free
+	add esp, 12
+	
 _onResize_no_dealloc:
 	
 	;allocate the new scale buffer
@@ -561,6 +572,21 @@ _onResize_no_dealloc:
 	push eax
 	call malloc
 	mov dword[ebx+32], eax	;save new data
+	add esp, 4
+	
+	;allocate index buffers
+	mov eax, dword[ebx+40]
+	shl eax, 1		;width*2 in eax
+	push eax
+	call malloc
+	mov dword[ebx+52], eax	;save columnIndexBuffer
+	add esp, 4
+	
+	mov eax, dword[ebx+44]
+	shl eax, 1		;height*2 in eax
+	push eax
+	call malloc
+	mov dword[ebx+56], eax	;save lineIndexBuffer
 	add esp, 4
 	
 	;create new image
@@ -577,6 +603,47 @@ _onResize_no_dealloc:
 	call XCreateImage
 	mov dword[ebx+36], eax	;save image
 	add esp, 40
+	
+	;calculate column index buffer
+	fild dword[FRAMEBUFFER_WIDTH]
+	fild dword[ebx+40]
+	fdivp			;delta in ST(1)
+	fild dword[ZERO]	;current index float in ST(0)
+	mov eax, dword[ebx+40]
+	mov ecx, dword[ebx+52]		;current elements
+_onResize_calculate_column_loop_start:
+	
+	fld st0			;duplicate st0
+	fisttp word[ecx]	;pop truncated integer (there is no such instruction without pop)
+	fadd st0, st1
+	
+	add ecx, 2
+	dec eax
+	cmp eax, 0
+	jg _onResize_calculate_column_loop_start
+	fstp st0
+	fstp st0
+	
+	
+	;calculate line index buffer
+	fild dword[FRAMEBUFFER_HEIGHT]
+	fild dword[ebx+44]
+	fdivp			;delta in ST(1)
+	fild dword[ZERO]	;current index float in ST(0)
+	mov eax, dword[ebx+44]
+	mov ecx, dword[ebx+56]		;current elements
+_onResize_calculate_line_loop_start:
+	
+	fld st0			;duplicate st0
+	fisttp word[ecx]	;pop truncated integer (there is no such instruction without pop)
+	fadd st0, st1
+	
+	add ecx, 2
+	dec eax
+	cmp eax, 0
+	jg _onResize_calculate_line_loop_start
+	fstp st0
+	fstp st0
 	
 	mov esp, ebp
 	pop ebx

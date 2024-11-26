@@ -25,48 +25,50 @@ _start:
 	push ebp
 	mov ebp, esp
 	
-	sub esp, 52		;buffer for screeninfo
+	finit
+	
+	sub esp, 60		;buffer for screeninfo
 	sub esp, 12		;buffer for event
 	sub esp, 4		;frame counter
 	
-	lea eax, [ebp-52]
+	lea eax, [ebp-60]
 	push eax
 	call window_create
 	add esp, 4
 
 _start_endless_loop:
-	lea eax, [ebp-52]
+	lea eax, [ebp-60]
 	push eax
 	call window_pendingEvent
 	add esp, 4
 	cmp eax, 0
 	je _start_endless_loop_no_event
 	
-	lea eax, [ebp-52]	;screeninfo in eax
-	lea ecx, [ebp-64]	;event in ecx
+	lea eax, [ebp-60]	;screeninfo in eax
+	lea ecx, [ebp-72]	;event in ecx
 	push ecx
 	push eax
 	call window_consumeEvent
 	add esp, 8
 	
-	mov eax, dword[ebp-64]
+	mov eax, dword[ebp-72]
 	cmp eax, dword[MouseReleaseEvent]
 	jne _start_endless_loop_no_event
 	
 
-	push dword[ebp-68]
+	push dword[ebp-76]
 	push print_button
 	call printf
 	add esp, 8
 	
-	mov dword[ebp-68],0
+	mov dword[ebp-76],0
 	
 _start_endless_loop_no_event:
-	lea ecx, [ebp-52]
+	lea ecx, [ebp-60]
 	push ecx
 	call window_showFrame
 	add esp, 4
-	inc dword[ebp-68]
+	inc dword[ebp-76]
 	
 	jmp _start_endless_loop
 _start_endless_loop_end:
