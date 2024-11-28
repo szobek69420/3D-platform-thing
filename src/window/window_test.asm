@@ -3,6 +3,8 @@ section .rodata
 	print_window_size db "window size: %d %d",10,0
 	print_key db "%s",10,0
 	print_button db "%d",10,0
+	
+	test_triangle dd -0.5, 0.3, 0.1,  -0.3, 0.25, 0.7,  0.1, -0.5, 0.2
 
 section .text
 	extern window_create
@@ -11,6 +13,8 @@ section .text
 	extern window_showFrame
 	extern window_onResize
 	extern printf
+	
+	extern renderer_renderTriangle
 	
 	extern NoEvent
 	extern WindowCloseEvent
@@ -79,6 +83,19 @@ _start_endless_loop_no_mouse_event:
 	add esp, 4
 	
 _start_endless_loop_no_event:
+	mov eax, test_triangle
+	add eax, 24
+	push eax
+	sub eax, 12
+	push eax
+	sub eax, 12
+	push eax
+	push 0xFFFF0000
+	lea ecx, [ebp-60]
+	push ecx
+	call renderer_renderTriangle
+	add esp, 20
+
 	lea ecx, [ebp-60]
 	push ecx
 	call window_showFrame

@@ -57,9 +57,13 @@
 section .rodata
 	FRAMEBUFFER_WIDTH dd 720
 	FRAMEBUFFER_HEIGHT dd 480
+	FRAMEBUFFER_WIDTH_FLOAT dd 720.0
+	FRAMEBUFFER_HEIGHT_FLOAT dd 480.0
 	FRAMEBUFFER_BYTE_COUNT dd 1382400	;720*480*4
 	global FRAMEBUFFER_WIDTH
 	global FRAMEBUFFER_HEIGHT
+	global FRAMEBUFFER_WIDTH_FLOAT
+	global FRAMEBUFFER_HEIGHT_FLOAT
 	global FRAMEBUFFER_BYTE_COUNT
 	
 	INITIAL_WINDOW_WIDTH dd 800
@@ -156,7 +160,7 @@ section .text
 	global window_onResize		;void window_onResize(ScreenInfo* window);
 	
 	global window_showFrame		;void window_showFrame(ScreenInfo* window);
-	
+		
 window_create:
 	push ebp
 	push esi
