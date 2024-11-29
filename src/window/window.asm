@@ -511,6 +511,7 @@ window_showFrame:
 	mov ebx, dword[ebp+20]		;window in ebx
 	
 	;fill up the draw buffer as a test
+	jmp _showFrame_test_fill_skip
 	mov eax, dword[ebx+28]
 	mov edi, dword[FRAMEBUFFER_HEIGHT]
 _showFrame_test_fill_outer_loop_start:
@@ -528,6 +529,7 @@ _showFrame_test_fill_inner_loop_start:
 	dec edi
 	cmp edi, 0
 	jg _showFrame_test_fill_outer_loop_start
+_showFrame_test_fill_skip:
 	
 	;copy the draw buffer into the scalebuffer
 	push dword[FRAMEBUFFER_WIDTH]
