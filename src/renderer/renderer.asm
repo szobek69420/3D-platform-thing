@@ -4,6 +4,10 @@ section .rodata
 	print_line_break_format db 10,0
 
 	HALF dd 0.5
+	F255 dd 255.0
+	
+section .bss
+	FRAMEBUFFER_BYTES_PER_LINE resb 4
 
 section .text
 	extern printf
@@ -65,6 +69,10 @@ renderer_renderTriangle:
 	push edi
 	mov ebp, esp
 	
+	mov eax, dword[FRAMEBUFFER_WIDTH]
+	shl eax, 2
+	mov dword[FRAMEBUFFER_BYTES_PER_LINE], eax
+	
 	sub esp, 8	;deltaLeftBoundX, deltaRightBoundX
 	sub esp, 8	;tempLeftBoundX, tempRightBoundX
 	sub esp, 12	;x1, y1, depth1
@@ -105,6 +113,22 @@ renderer_renderTriangle:
 	push eax
 	call renderer_vec3ToScreenCoords
 	add esp, 12
+	
+	;depths from [0,1] to [0, 255]
+	movss xmm1, dword[F255]
+	
+	movss xmm0, dword[esp+44]
+	mulss xmm0, xmm1
+	movss dword[esp+44], xmm0
+	
+	movss xmm0, dword[esp+32]
+	mulss xmm0, xmm1
+	movss dword[esp+32], xmm0
+	
+	movss xmm0, dword[esp+8]
+	mulss xmm0, xmm1
+	movss dword[esp+8], xmm0
+	
 	
 	;sort vertices based on y coords in descending order
 	mov eax, dword[esp+40]
@@ -301,18 +325,27 @@ _renderTriangle_first_subtriangle:
 	mov ebx, dword[ebp+24]		;colour in ebx
 	
 	mov ecx, dword[esp+40]		;y index in ecx
+	movss xmm2, dword[esp+44]	;z in xmm2
 _renderTriangle_first_subtriangle_outer_loop_start:
-	sub esp, 4
+	cmp ecx, 0
+	jl _renderTriangle_first_subtriangle_outer_loop_continue
+	cmp ecx, dword[FRAMEBUFFER_HEIGHT]
+	jge _renderTriangle_first_subtriangle_outer_loop_continue
 	
-	mov esi, dword[FRAMEBUFFER_WIDTH]
-	shl esi, 2
+	movss xmm3, xmm2		;current depth in xmm3
+
+	mov esi, dword[FRAMEBUFFER_BYTES_PER_LINE]
 	imul esi, ecx
 	add esi, eax
 	mov edi, esi
 	
+	push eax		;save eax
+	push ecx		;save ecx
+	sub esp, 4
 	fld dword[ebp-16]
 	fistp dword[esp]
 	mov edx, dword[esp]
+	mov eax, edx
 	shl edx, 2
 	add esi, edx
 	
@@ -323,12 +356,41 @@ _renderTriangle_first_subtriangle_outer_loop_start:
 	add edi, edx
 	
 	add esp, 4
+	sub esp, 4	;temp z
 _renderTriangle_first_subtriangle_inner_loop_start:
+	cmp eax, 0
+	jl _renderTriangle_first_subtriangle_inner_loop_continue
+	cmp eax, dword[FRAMEBUFFER_WIDTH]
+	jge _renderTriangle_first_subtriangle_inner_loop_continue
+	
+	;depth test
+	movss dword[esp], xmm3
+	fld dword[esp]
+	fistp dword[esp]
+	
+	mov ecx, dword[esp]
+	cmp ecx, 0
+	jl _renderTriangle_first_subtriangle_inner_loop_continue
+	cmp ecx, 255
+	jg _renderTriangle_first_subtriangle_inner_loop_continue
+	cmp cl, byte[esi+3]
+	ja _renderTriangle_first_subtriangle_inner_loop_continue	;ja, mert unsigned
+	
 	mov dword[esi], ebx
+	mov byte[esi+3], cl
+	mov byte[esi], cl	;test
+	
+_renderTriangle_first_subtriangle_inner_loop_continue:
+	addss xmm3, xmm0		;add deltaDepthX
+	inc eax
 	add esi, 4
 	cmp esi, edi
 	jle _renderTriangle_first_subtriangle_inner_loop_start
+	add esp, 4
+	pop ecx			;restore ecx
+	pop eax			;restore eax
 	
+_renderTriangle_first_subtriangle_outer_loop_continue:
 	fld dword[ebp-16]
 	fld dword[ebp-8]
 	faddp
@@ -339,6 +401,8 @@ _renderTriangle_first_subtriangle_inner_loop_start:
 	faddp
 	fstp dword[ebp-12]
 	
+	addss xmm2, xmm1		;add deltaDepthY
+	
 	inc ecx
 	cmp ecx, dword[esp+16]
 	jl _renderTriangle_first_subtriangle_outer_loop_start
@@ -347,9 +411,9 @@ _renderTriangle_first_subtriangle_inner_loop_start:
 	
 	;render second sub-triangle
 _renderTriangle_second_subtriangle:
-	mov eax, dword[esp+16]
+	mov eax, dword[esp+28]
 	cmp eax, dword[esp+4]
-	je _renderTriangle_done		;the second sub triangle has a height of 0
+	je _renderTriangle_second_subtriangle		;the second sub triangle has a height of 0
 	
 	;calculate deltaDepthY (xmm1)
 	movss xmm1, dword[esp+8]
@@ -403,18 +467,27 @@ _renderTriangle_second_subtriangle:
 	mov ebx, dword[ebp+24]		;colour in ebx
 	
 	mov ecx, dword[esp+28]		;y index in ecx
+	movss xmm2, dword[esp+32]	;z in xmm2
 _renderTriangle_second_subtriangle_outer_loop_start:
-	sub esp, 4
+	cmp ecx, 0
+	jl _renderTriangle_second_subtriangle_outer_loop_continue
+	cmp ecx, dword[FRAMEBUFFER_HEIGHT]
+	jge _renderTriangle_second_subtriangle_outer_loop_continue
 	
-	mov esi, dword[FRAMEBUFFER_WIDTH]
-	shl esi, 2
+	movss xmm3, xmm2		;current depth in xmm3
+
+	mov esi, dword[FRAMEBUFFER_BYTES_PER_LINE]
 	imul esi, ecx
 	add esi, eax
 	mov edi, esi
 	
+	push eax		;save eax
+	push ecx		;save ecx
+	sub esp, 4
 	fld dword[ebp-16]
 	fistp dword[esp]
 	mov edx, dword[esp]
+	mov eax, edx
 	shl edx, 2
 	add esi, edx
 	
@@ -425,12 +498,41 @@ _renderTriangle_second_subtriangle_outer_loop_start:
 	add edi, edx
 	
 	add esp, 4
+	sub esp, 4	;temp z
 _renderTriangle_second_subtriangle_inner_loop_start:
+	cmp eax, 0
+	jl _renderTriangle_second_subtriangle_inner_loop_continue
+	cmp eax, dword[FRAMEBUFFER_WIDTH]
+	jge _renderTriangle_second_subtriangle_inner_loop_continue
+	
+	;depth test
+	movss dword[esp], xmm3
+	fld dword[esp]
+	fistp dword[esp]
+	
+	mov ecx, dword[esp]
+	cmp ecx, 0
+	jl _renderTriangle_second_subtriangle_inner_loop_continue
+	cmp ecx, 255
+	jg _renderTriangle_second_subtriangle_inner_loop_continue
+	cmp cl, byte[esi+3]
+	ja _renderTriangle_second_subtriangle_inner_loop_continue	;ja, mert unsigned
+	
 	mov dword[esi], ebx
+	mov byte[esi+3], cl
+	mov byte[esi], cl	;test
+	
+_renderTriangle_second_subtriangle_inner_loop_continue:
+	addss xmm3, xmm0		;add deltaDepthX
+	inc eax
 	add esi, 4
 	cmp esi, edi
 	jle _renderTriangle_second_subtriangle_inner_loop_start
+	add esp, 4
+	pop ecx			;restore ecx
+	pop eax			;restore eax
 	
+_renderTriangle_second_subtriangle_outer_loop_continue:
 	fld dword[ebp-16]
 	fld dword[ebp-8]
 	faddp
@@ -440,6 +542,8 @@ _renderTriangle_second_subtriangle_inner_loop_start:
 	fld dword[ebp-4]
 	faddp
 	fstp dword[ebp-12]
+	
+	addss xmm2, xmm1		;add deltaDepthY
 	
 	inc ecx
 	cmp ecx, dword[esp+4]

@@ -161,6 +161,8 @@ section .text
 	
 	global window_showFrame		;void window_showFrame(ScreenInfo* window);
 		
+	global window_clearDrawBuffer	;void window_clear(ScreenInfo* window, int clearColour)
+	
 window_create:
 	push ebp
 	push esi
@@ -705,4 +707,26 @@ _onResize_calculate_line_loop_start:
 	mov esp, ebp
 	pop ebx
 	pop ebp
+	ret
+	
+	
+window_clearDrawBuffer:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]
+	mov eax, dword[eax+28]		;drawbuffer in eax
+	mov ecx, eax
+	add eax, dword[FRAMEBUFFER_BYTE_COUNT]
+	sub eax, 4
+	
+	mov edx, dword[ebp+12]		;colour in edx
+_clearDrawBuffer_loop_start:
+	mov dword[eax], edx
+	sub eax, 4
+	cmp eax, ecx
+	jge _clearDrawBuffer_loop_start
+	
+	mov esp, ebp
+	pop ebp 
 	ret

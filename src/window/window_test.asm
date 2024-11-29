@@ -4,7 +4,8 @@ section .rodata
 	print_key db "%s",10,0
 	print_button db "%d",10,0
 	
-	test_triangle dd -0.5, 0.3, 0.1,  -0.7, 0.25, 0.7,  0.1, -0.5, 0.2
+	test_triangle dd -0.5, 0.0, 0.1,  -0.1, 0.5, 1.0,  0.7, -0.3, 0.2
+	test_triangle2 dd -0.4, -0.6, 0.5,  0.5, 0.2, 0.1,  0.6, 0.1, 0.2
 
 section .text
 	extern window_create
@@ -12,6 +13,7 @@ section .text
 	extern window_consumeEvent
 	extern window_showFrame
 	extern window_onResize
+	extern window_clearDrawBuffer
 	extern printf
 	
 	extern renderer_renderTriangle
@@ -83,6 +85,12 @@ _start_endless_loop_no_mouse_event:
 	add esp, 4
 	
 _start_endless_loop_no_event:
+	lea ecx, [ebp-60]
+	push 0xFF0000FF
+	push ecx
+	call window_clearDrawBuffer
+	add esp, 8
+
 	mov eax, test_triangle
 	add eax, 24
 	push eax
@@ -91,6 +99,19 @@ _start_endless_loop_no_event:
 	sub eax, 12
 	push eax
 	push 0xFFFF0000
+	lea ecx, [ebp-60]
+	push ecx
+	call renderer_renderTriangle
+	add esp, 20
+	
+	mov eax, test_triangle2
+	add eax, 24
+	push eax
+	sub eax, 12
+	push eax
+	sub eax, 12
+	push eax
+	push 0xFF00FF00
 	lea ecx, [ebp-60]
 	push ecx
 	call renderer_renderTriangle
