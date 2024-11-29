@@ -4,7 +4,7 @@ section .rodata
 	print_key db "%s",10,0
 	print_button db "%d",10,0
 	
-	test_triangle dd -0.5, 0.3, 0.1,  -0.3, 0.25, 0.7,  0.1, -0.5, 0.2
+	test_triangle dd -0.5, 0.3, 0.1,  -0.7, 0.25, 0.7,  0.1, -0.5, 0.2
 
 section .text
 	extern window_create
