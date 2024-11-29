@@ -23,7 +23,7 @@ section .text
 	global vector_destroy		;void vector_destroy(vector*)
 	global vector_clear			;void vector_clear(vector*)
 	global vector_at			;<element>* vector_at(vector*, int index)
-	global vector_push_back	;void vector_push_back(vector*, <element> element)
+	global vector_push_back		;void vector_push_back(vector*, <element> element)
 	global vector_pop_back		;void vector_pop_back(vector*)
 	global vector_insert		;void vector_insert(vector*, int index, <element> element)
 	global vector_remove_at	;void vector_remove_at(vector*, int index)

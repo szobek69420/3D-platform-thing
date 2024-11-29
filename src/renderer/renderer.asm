@@ -378,7 +378,6 @@ _renderTriangle_first_subtriangle_inner_loop_start:
 	
 	mov dword[esi], ebx
 	mov byte[esi+3], cl
-	mov byte[esi], cl	;test
 	
 _renderTriangle_first_subtriangle_inner_loop_continue:
 	addss xmm3, xmm0		;add deltaDepthX
@@ -520,7 +519,6 @@ _renderTriangle_second_subtriangle_inner_loop_start:
 	
 	mov dword[esi], ebx
 	mov byte[esi+3], cl
-	mov byte[esi], cl	;test
 	
 _renderTriangle_second_subtriangle_inner_loop_continue:
 	addss xmm3, xmm0		;add deltaDepthX

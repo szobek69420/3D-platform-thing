@@ -17,6 +17,8 @@ section .text
 	extern printf
 	
 	extern renderer_renderTriangle
+	extern renderable_createKuba
+	extern renderable_destroy
 	
 	extern NoEvent
 	extern WindowCloseEvent
@@ -37,6 +39,13 @@ _start:
 	sub esp, 60		;buffer for screeninfo
 	sub esp, 12		;buffer for event
 	sub esp, 4		;frame counter
+	sub esp, 84		;renderable
+	
+	mov eax, esp
+	push esp
+	call renderable_createKuba
+	call renderable_destroy
+	add esp, 4
 	
 	lea eax, [ebp-60]
 	push eax
