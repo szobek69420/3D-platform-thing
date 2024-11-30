@@ -6,6 +6,10 @@ section .rodata
 	
 	test_triangle dd -0.5, 0.0, 0.1,  -0.1, 0.5, 1.0,  0.7, -0.3, 0.2
 	test_triangle2 dd -0.4, -0.6, 0.5,  0.5, 0.2, 0.1,  0.6, 0.1, 0.2
+	
+	ONE dd 1.0
+	DELTA_ROT_X dd 0.1
+	DELTA_ROT_Y dd 0.13
 
 section .text
 	extern window_create
@@ -19,6 +23,10 @@ section .text
 	extern renderer_renderTriangle
 	extern renderable_createKuba
 	extern renderable_destroy
+	extern renderable_render
+	extern renderable_print
+	
+	extern mat4_init
 	
 	extern NoEvent
 	extern WindowCloseEvent
@@ -40,12 +48,19 @@ _start:
 	sub esp, 12		;buffer for event
 	sub esp, 4		;frame counter
 	sub esp, 84		;renderable
+	sub esp, 64		;pv matrix
 	
-	mov eax, esp
-	push esp
+	lea eax, [ebp-160]
+	push eax
 	call renderable_createKuba
-	call renderable_destroy
 	add esp, 4
+	
+	lea eax, [ebp-224]
+	push dword[ONE]
+	push eax
+	call mat4_init
+	add esp, 8
+	
 	
 	lea eax, [ebp-60]
 	push eax
@@ -100,31 +115,23 @@ _start_endless_loop_no_event:
 	call window_clearDrawBuffer
 	add esp, 8
 
-	mov eax, test_triangle
-	add eax, 24
-	push eax
-	sub eax, 12
-	push eax
-	sub eax, 12
-	push eax
-	push 0xFFFF0000
+	lea eax, [ebp-160]
 	lea ecx, [ebp-60]
-	push ecx
-	call renderer_renderTriangle
-	add esp, 20
+	lea edx, [ebp-224]
+	movss xmm0, dword[DELTA_ROT_X]
+	movss xmm1, dword[eax+60]
+	addss xmm1, xmm0
+	movss dword[eax+60], xmm1
+	movss xmm0, dword[DELTA_ROT_Y]
+	movss xmm1, dword[eax+64]
+	addss xmm1, xmm0
+	movss dword[eax+64], xmm1
 	
-	mov eax, test_triangle2
-	add eax, 24
-	push eax
-	sub eax, 12
-	push eax
-	sub eax, 12
-	push eax
-	push 0xFF00FF00
-	lea ecx, [ebp-60]
+	push edx
 	push ecx
-	call renderer_renderTriangle
-	add esp, 20
+	push eax
+	call renderable_render
+	add esp, 12
 
 	lea ecx, [ebp-60]
 	push ecx

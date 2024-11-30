@@ -2,6 +2,7 @@ section .rodata
 	print_coords_format db "screen coords: %d, %d, %.3f",10,0
 	print_deltas_format db "%.3f, %.3f",10,0
 	print_line_break_format db 10,0
+	print_int_format db "%d",10,0
 
 	HALF dd 0.5
 	F255 dd 255.0
@@ -21,7 +22,7 @@ section .text
 	
 	global renderer_renderTriangle		;void renderer_renderTriangle(ScreenInfo* screen, int colour, vec3* a, vec3* b, vec3* c)
 	
-renderer_vec3ToScreenCoords:		;void renderer_vec3ToScreenCoords(vec3*, int* x, int* y) //it accepts a clip space vec3
+renderer_vec3ToScreenCoords:		;void renderer_vec3ToScreenCoords(vec3*, int* x, int* y) //it expects a clip space vec3
 	push ebp
 	mov ebp, esp
 	
@@ -113,6 +114,7 @@ renderer_renderTriangle:
 	push eax
 	call renderer_vec3ToScreenCoords
 	add esp, 12
+
 	
 	;depths from [0,1] to [0, 255]
 	movss xmm1, dword[F255]
@@ -264,8 +266,6 @@ _renderTriangle_point2s_swapped:
 	movss xmm1, dword[esp]
 	divss xmm0, xmm1
 	add esp, 4
-	
-
 
 	;render first sub-triangle
 _renderTriangle_first_subtriangle:
@@ -407,12 +407,11 @@ _renderTriangle_first_subtriangle_outer_loop_continue:
 	jl _renderTriangle_first_subtriangle_outer_loop_start
 	
 	
-	
 	;render second sub-triangle
 _renderTriangle_second_subtriangle:
 	mov eax, dword[esp+28]
 	cmp eax, dword[esp+4]
-	je _renderTriangle_second_subtriangle		;the second sub triangle has a height of 0
+	je _renderTriangle_done		;the second sub triangle has a height of 0
 	
 	;calculate deltaDepthY (xmm1)
 	movss xmm1, dword[esp+8]

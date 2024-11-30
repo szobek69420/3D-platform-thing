@@ -843,10 +843,6 @@ mat4_rotate:
 	mov dword[eax+56], 0
 	mov edx, dword[one]
 	mov dword[eax+60], edx
-
-	lea eax, [ebp-76]
-	push eax
-	call mat4_print
 	
 	;morbin' time
 	lea eax, [ebp-76]
