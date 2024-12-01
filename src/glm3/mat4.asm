@@ -43,7 +43,7 @@ section .text
 	global mat4_rotate		;void mat4_rotate(mat4* mat, vec3* vec, float angleInDegrees)
 	global mat4_translate		;void mat4_translate(mat4* mat, vec3* vec)
 	
-	global mat4_view		;void mat4_look(mat4* buffer, vec3* position, vec3* direction, vec3* worldup)
+	global mat4_view		;void mat4_view(mat4* buffer, vec3* position, vec3* direction, vec3* worldup)
 	global mat4_ortho		;void mat4_ortho(mat4* buffer, float left, float right, float bottom, float top, float near, float far)
 	global mat4_perspective		;void mat4_perspective(mat4* buffer, float fovInDegrees, float aspectXY, float near, float far)
 	
