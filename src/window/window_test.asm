@@ -53,17 +53,17 @@ _start:
 	finit
 	
 	sub esp, 60		;buffer for screeninfo
-	sub esp, 12		;buffer for event
+	sub esp, 16		;buffer for event
 	sub esp, 4		;frame counter
 	sub esp, 84		;renderable
 	sub esp, 64		;pv matrix
 	
-	lea eax, [ebp-160]
+	lea eax, [ebp-164]
 	push eax
 	call renderable_createKuba
 	add esp, 4
 	
-	lea eax, [ebp-224]
+	lea eax, [ebp-228]
 	push dword[ONE]
 	push eax
 	call mat4_init
@@ -89,32 +89,45 @@ _start_endless_loop:
 	je _start_endless_loop_no_event
 	
 	lea eax, [ebp-60]	;screeninfo in eax
-	lea ecx, [ebp-72]	;event in ecx
+	lea ecx, [ebp-76]	;event in ecx
 	push ecx
 	push eax
 	call window_consumeEvent
 	add esp, 8
 	
-	mov eax, dword[ebp-72]
+	mov eax, dword[ebp-76]
 	cmp eax, dword[MouseReleaseEvent]
 	jne _start_endless_loop_no_mouse_event
 	
-	push dword[ebp-76]
+	push dword[ebp-80]
 	push print_button
 	call printf
 	add esp, 8
 	
-	mov dword[ebp-76],0
+	mov dword[ebp-80],0
 	jmp _start_endless_loop_no_event
 	
 _start_endless_loop_no_mouse_event:
+
+	mov eax, dword[ebp-76]
+	cmp eax, dword[KeyPressEvent]
+	jne _start_endless_loop_no_key_event
+	
+	lea eax, [ebp-72]
+	push eax
+	push print_key
+	call printf
+	add esp, 8
+	jmp _start_endless_loop_no_event
+	
+_start_endless_loop_no_key_event:
 	cmp eax, dword[WindowResizeEvent]
 	jne _start_endless_loop_no_event
 	
 	lea eax, [ebp-60]
-	mov ecx, dword[ebp-68]
+	mov ecx, dword[ebp-72]
 	mov dword[eax+40], ecx
-	mov ecx, dword[ebp-64]
+	mov ecx, dword[ebp-68]
 	mov dword[eax+44], ecx
 	
 	push eax
@@ -128,29 +141,10 @@ _start_endless_loop_no_event:
 	call window_clearDrawBuffer
 	add esp, 8
 	
-	push 69
-	push 69
-	lea eax, [ebp-60]
-	push eax
-	call window_setCursorPosition
-	add esp, 12
-	
-	lea eax, [ebp-60]
-	push mouseY
-	push mouseX
-	push eax
-	call window_getCursorPosition
-	add esp, 12
-	
-	push dword[mouseY]
-	push dword[mouseX]
-	push print_mouse_coordinates
-	call printf
-	add esp, 12
 
-	lea eax, [ebp-160]
+	lea eax, [ebp-164]
 	lea ecx, [ebp-60]
-	lea edx, [ebp-224]
+	lea edx, [ebp-228]
 	movss xmm0, dword[DELTA_ROT_X]
 	movss xmm1, dword[eax+60]
 	addss xmm1, xmm0
@@ -170,7 +164,7 @@ _start_endless_loop_no_event:
 	push ecx
 	call window_showFrame
 	add esp, 4
-	inc dword[ebp-76]
+	inc dword[ebp-80]
 	
 	jmp _start_endless_loop
 _start_endless_loop_end:

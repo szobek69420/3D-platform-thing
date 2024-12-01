@@ -33,7 +33,7 @@
 ;		MousePressEvent;
 ;		MouseReleaseEvent;
 ;	}
-;}
+;}  //size: 16 bytes
 
 ;struct MouseMotionEvent{
 ;	int x, y;
@@ -42,7 +42,7 @@
 ;struct WindowCloseEvent{}
 
 ;struct KeyPressEvent and KeyReleaseEvent{
-;	char* keyString;
+;	12 chars for the key info
 ;}
 
 ;struct WindowResizeEvent{
@@ -151,6 +151,7 @@ section .text
 	extern XNextEvent
 	extern XKeycodeToKeysym
 	extern XKeysymToString
+	extern XAutoRepeatOff
 	
 	extern XQueryPointer
 	extern XWarpPointer
@@ -299,6 +300,11 @@ _create_skip_wm_protocol:
 	call XStoreName
 	add esp, 12
 	
+	;turn off repeated keystrokes
+	push dword[ebx]
+	call XAutoRepeatOff
+	add esp, 4
+	
 	;flush things (probably unnecessary)
 	push dword[ebx]
 	call XFlush
@@ -446,7 +452,32 @@ _consumeEvent_not_mouse_motion_event:
 	pop ecx
 	pop eax
 	
-	mov dword[ecx+4], edx		;save character
+	;copy the keystring
+	push esi
+	push edi
+	push ebx
+	
+	lea esi, [edx-1]		;the keystring in esi
+	mov edi, 0xFFFFFFFF
+	jmp _consumeEvent_key_press_copy_loop_continue
+_consumeEvent_key_press_copy_loop_start:
+	mov bl, byte[esi]
+	mov byte[ecx+edi+4], bl
+_consumeEvent_key_press_copy_loop_continue:
+	inc esi
+	inc edi
+	cmp edi, 11
+	je _consumeEvent_key_press_copy_loop_end
+	mov bl, byte[esi]
+	cmp bl, 0
+	je _consumeEvent_key_press_copy_loop_end
+	jmp _consumeEvent_key_press_copy_loop_start
+_consumeEvent_key_press_copy_loop_end:
+	mov byte[ecx+edi+4],0
+	
+	pop ebx
+	pop edi
+	pop esi
 	
 	jmp _consumeEvent_event_check_done
 _consumeEvent_not_key_press_event:
@@ -477,7 +508,32 @@ _consumeEvent_not_key_press_event:
 	pop ecx
 	pop eax
 	
-	mov dword[ecx+4], edx		;save character
+	;copy the keystring
+	push esi
+	push edi
+	push ebx
+	
+	lea esi, [edx-1]		;the keystring in esi
+	mov edi, 0xFFFFFFFF
+	jmp _consumeEvent_key_release_copy_loop_continue
+_consumeEvent_key_release_copy_loop_start:
+	mov bl, byte[esi]
+	mov byte[ecx+edi+4], bl
+_consumeEvent_key_release_copy_loop_continue:
+	inc esi
+	inc edi
+	cmp edi, 11
+	je _consumeEvent_key_release_copy_loop_end
+	mov bl, byte[esi]
+	cmp bl, 0
+	je _consumeEvent_key_release_copy_loop_end
+	jmp _consumeEvent_key_release_copy_loop_start
+_consumeEvent_key_release_copy_loop_end:
+	mov byte[ecx+edi+4],0
+	
+	pop ebx
+	pop edi
+	pop esi
 	
 	jmp _consumeEvent_event_check_done
 _consumeEvent_not_key_release_event:
