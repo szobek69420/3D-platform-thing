@@ -10,6 +10,10 @@ section .rodata
 	ONE dd 1.0
 	DELTA_ROT_X dd 0.1
 	DELTA_ROT_Y dd 0.13
+	
+section .bss
+	mouseX resb 4
+	mouseY resb 4
 
 section .text
 	extern window_create
@@ -18,6 +22,10 @@ section .text
 	extern window_showFrame
 	extern window_onResize
 	extern window_clearDrawBuffer
+	extern window_getCursorPosition
+	extern window_setCursorPosition
+	extern window_hideCursor
+	
 	extern printf
 	
 	extern renderer_renderTriangle
@@ -65,6 +73,11 @@ _start:
 	lea eax, [ebp-60]
 	push eax
 	call window_create
+	add esp, 4
+	
+	lea eax, [ebp-60]
+	push eax
+	call window_hideCursor
 	add esp, 4
 
 _start_endless_loop:
@@ -114,6 +127,26 @@ _start_endless_loop_no_event:
 	push ecx
 	call window_clearDrawBuffer
 	add esp, 8
+	
+	push 69
+	push 69
+	lea eax, [ebp-60]
+	push eax
+	call window_setCursorPosition
+	add esp, 12
+	
+	lea eax, [ebp-60]
+	push mouseY
+	push mouseX
+	push eax
+	call window_getCursorPosition
+	add esp, 12
+	
+	push dword[mouseY]
+	push dword[mouseX]
+	push print_mouse_coordinates
+	call printf
+	add esp, 12
 
 	lea eax, [ebp-160]
 	lea ecx, [ebp-60]

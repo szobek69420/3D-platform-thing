@@ -152,6 +152,11 @@ section .text
 	extern XKeycodeToKeysym
 	extern XKeysymToString
 	
+	extern XQueryPointer
+	extern XWarpPointer
+	extern XDefineCursor
+	
+	
 	global window_create		;void window_create(ScreenInfo* buffer)
 	global window_destroy		;void window_destroy(ScreenInfo* window)
 	
@@ -162,6 +167,10 @@ section .text
 	global window_showFrame		;void window_showFrame(ScreenInfo* window);
 		
 	global window_clearDrawBuffer	;void window_clear(ScreenInfo* window, int clearColour)
+	
+	global window_getCursorPosition	;void window_getCursorPosition(ScreenInfo* window, int* x, int* y)
+	global window_setCursorPosition	;void window_setCursorPosition(ScreenInfo* window, int x, int y)
+	global window_hideCursor	;void window_hideCursor(ScreenInfo* window)
 	
 window_create:
 	push ebp
@@ -729,4 +738,73 @@ _clearDrawBuffer_loop_start:
 	
 	mov esp, ebp
 	pop ebp 
+	ret
+	
+	
+	
+window_getCursorPosition:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;alloc space for trash
+	
+	mov eax, dword[ebp+8]		;window in eax
+	mov ecx, esp
+	
+	push ecx
+	mov edx, dword[ebp+16]
+	push edx
+	mov edx, dword[ebp+12]
+	push edx
+	push ecx
+	push ecx
+	push ecx
+	push ecx
+	push dword[eax+4]
+	push dword[eax]
+	call XQueryPointer
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+window_setCursorPosition:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]		;window in eax
+	
+	push dword[ebp+16]
+	push dword[ebp+12]
+	push 0
+	push 0
+	push 0
+	push 0
+	push dword[eax+4]
+	push 0
+	push dword[eax]
+	call XWarpPointer
+	call XFlush
+	
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+window_hideCursor:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]
+	
+	push 0
+	push dword[eax+4]
+	push dword[eax]
+	call XDefineCursor
+	call XFlush
+	
+	mov esp, ebp
+	pop ebp
 	ret
