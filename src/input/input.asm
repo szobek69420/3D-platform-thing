@@ -2,63 +2,63 @@ section .rodata
 	debug_message db "sugus",10,0
 	debug_print_string db "%s",10,0
 
-	KEY_LEFT dd 11
-	KEY_RIGHT dd 12
-	KEY_UP dd 13
-	KEY_DOWN dd 14
+	KEY_LEFT equ 11
+	KEY_RIGHT equ 12
+	KEY_UP equ 13
+	KEY_DOWN equ 14
 	KEY_LEFT_STRING db "Left",0
 	KEY_RIGHT_STRING db "Right",0
 	KEY_UP_STRING db "Up",0
 	KEY_DOWN_STRING db "Down",0
 
-	KEY_ESCAPE dd 27
+	KEY_ESCAPE equ 27
 	KEY_ESCAPE_STRING db "Escape",0
-	KEY_SHIFT dd 31
+	KEY_SHIFT equ 31
 	KEY_SHIFT_STRING db "Shift_L",0
-	KEY_SPACE dd 32
+	KEY_SPACE equ 32
 	KEY_SPACE_STRING db "space",0
 	
-	KEY_NON_DIGIT_COUNT dd 7
+	KEY_NON_DIGIT_COUNT equ 7
 	KEY_NON_DIGIT_STRINGS dd KEY_LEFT_STRING, KEY_RIGHT_STRING, KEY_UP_STRING, KEY_DOWN_STRING, KEY_ESCAPE_STRING, KEY_SHIFT_STRING, KEY_SPACE_STRING
 	KEY_NON_DIGIT_CODES dd KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_ESCAPE, KEY_SHIFT, KEY_SPACE
 
-	KEY_0 dd 48
-	KEY_1 dd 49
-	KEY_2 dd 50
-	KEY_3 dd 51
-	KEY_4 dd 52
-	KEY_5 dd 53
-	KEY_6 dd 54
-	KEY_7 dd 55
-	KEY_8 dd 56
-	KEY_9 dd 57
+	KEY_0 equ 48
+	KEY_1 equ 49
+	KEY_2 equ 50
+	KEY_3 equ 51
+	KEY_4 equ 52
+	KEY_5 equ 53
+	KEY_6 equ 54
+	KEY_7 equ 55
+	KEY_8 equ 56
+	KEY_9 equ 57
 
-	KEY_A dd 97
-	KEY_B dd 98
-	KEY_C dd 99
-	KEY_D dd 100
-	KEY_E dd 101
-	KEY_F dd 102
-	KEY_G dd 103
-	KEY_H dd 104
-	KEY_I dd 105
-	KEY_J dd 106
-	KEY_K dd 107
-	KEY_L dd 108
-	KEY_M dd 109
-	KEY_N dd 110
-	KEY_O dd 111
-	KEY_P dd 112
-	KEY_Q dd 113
-	KEY_R dd 114
-	KEY_S dd 115
-	KEY_T dd 116
-	KEY_U dd 117
-	KEY_V dd 118
-	KEY_W dd 119
-	KEY_X dd 120
-	KEY_Y dd 121
-	KEY_Z dd 122
+	KEY_A equ 97
+	KEY_B equ 98
+	KEY_C equ 99
+	KEY_D equ 100
+	KEY_E equ 101
+	KEY_F equ 102
+	KEY_G equ 103
+	KEY_H equ 104
+	KEY_I equ 105
+	KEY_J equ 106
+	KEY_K equ 107
+	KEY_L equ 108
+	KEY_M equ 109
+	KEY_N equ 110
+	KEY_O equ 111
+	KEY_P equ 112
+	KEY_Q equ 113
+	KEY_R equ 114
+	KEY_S equ 115
+	KEY_T equ 116
+	KEY_U equ 117
+	KEY_V equ 118
+	KEY_W equ 119
+	KEY_X equ 120
+	KEY_Y equ 121
+	KEY_Z equ 122
 	
 	
 	global KEY_A
@@ -193,12 +193,12 @@ input_processEvent:
 	mov esi, dword[ebx]		;event type in esi
 	
 	
-	cmp esi, dword[KeyPressEvent]
+	cmp esi, KeyPressEvent
 	jne _processEvent_not_key_press
 	mov edi, key_pressed
 	jmp _processEvent_key_event
 _processEvent_not_key_press:
-	cmp esi, dword[KeyReleaseEvent]
+	cmp esi, KeyReleaseEvent
 	jne _processEvent_not_key_event
 	mov edi, key_released
 _processEvent_key_event:	
@@ -228,12 +228,11 @@ _processEvent_key_event_not_single_digit_loop_start:
 	jne _processEvent_key_event_not_single_digit_loop_continue
 	
 	mov ecx, dword[4*esi+KEY_NON_DIGIT_CODES]
-	mov ecx, dword[ecx]
 	mov dword[edi+ecx], 1
 	jmp _processEvent_done
 _processEvent_key_event_not_single_digit_loop_continue:
 	inc esi
-	cmp esi, dword[KEY_NON_DIGIT_COUNT]
+	cmp esi, KEY_NON_DIGIT_COUNT
 	jl _processEvent_key_event_not_single_digit_loop_start
 	
 _processEvent_not_key_event:
@@ -249,17 +248,20 @@ _processEvent_done:
 	
 	
 input_isKeyPressed:
-	mov eax, dword[esp+4]
-	mov eax, dword[eax+key_pressed]
+	mov ecx, dword[esp+4]
+	xor eax, eax
+	mov al, byte[ecx+key_pressed]
 	ret
 	
 input_isKeyReleased:
-	mov eax, dword[esp+4]
-	mov eax, dword[eax+key_released]
+	mov ecx, dword[esp+4]
+	xor eax, eax
+	mov al, byte[ecx+key_released]
 	ret
 	
 input_isKeyHeld:
-	mov eax, dword[esp+4]
-	mov eax, dword[eax+key_held]
+	mov ecx, dword[esp+4]
+	xor eax, eax
+	mov al, byte[ecx+key_held]
 	ret
 

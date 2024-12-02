@@ -38,7 +38,9 @@ section .text
 	extern input_init
 	extern input_update
 	extern input_processEvent
+	extern input_isKeyPressed
 	extern input_isKeyHeld
+	extern KEY_A
 	
 	extern mat4_init
 	
@@ -106,7 +108,7 @@ _start_endless_loop:
 	add esp, 8
 
 	mov eax, dword[ebp-76]
-	cmp eax, dword[WindowResizeEvent]
+	cmp eax, WindowResizeEvent
 	jne _start_endless_loop_no_window_event
 	
 	lea eax, [ebp-60]
@@ -127,8 +129,8 @@ _start_endless_loop_no_window_event:
 	add esp, 4
 	
 _start_endless_loop_no_event:
-	push 11
-	call input_isKeyHeld
+	push 98
+	call input_isKeyPressed
 	add esp, 4
 	cmp eax, 0
 	je _start_endless_loop_skip_key_held_print
