@@ -3,6 +3,7 @@ section .rodata
 	print_window_size db "window size: %d %d",10,0
 	print_key db "%s",10,0
 	print_button db "%d",10,0
+	print_cucc db "logus",10,0
 	
 	test_triangle dd -0.5, 0.0, 0.1,  -0.1, 0.5, 1.0,  0.7, -0.3, 0.2
 	test_triangle2 dd -0.4, -0.6, 0.5,  0.5, 0.2, 0.1,  0.6, 0.1, 0.2
@@ -33,6 +34,11 @@ section .text
 	extern renderable_destroy
 	extern renderable_render
 	extern renderable_print
+	
+	extern input_init
+	extern input_update
+	extern input_processEvent
+	extern input_isKeyHeld
 	
 	extern mat4_init
 	
@@ -79,8 +85,12 @@ _start:
 	push eax
 	call window_hideCursor
 	add esp, 4
+	
+	call input_init
 
 _start_endless_loop:
+	call input_update
+
 	lea eax, [ebp-60]
 	push eax
 	call window_pendingEvent
@@ -94,35 +104,10 @@ _start_endless_loop:
 	push eax
 	call window_consumeEvent
 	add esp, 8
-	
-	mov eax, dword[ebp-76]
-	cmp eax, dword[MouseReleaseEvent]
-	jne _start_endless_loop_no_mouse_event
-	
-	push dword[ebp-80]
-	push print_button
-	call printf
-	add esp, 8
-	
-	mov dword[ebp-80],0
-	jmp _start_endless_loop_no_event
-	
-_start_endless_loop_no_mouse_event:
 
 	mov eax, dword[ebp-76]
-	cmp eax, dword[KeyPressEvent]
-	jne _start_endless_loop_no_key_event
-	
-	lea eax, [ebp-72]
-	push eax
-	push print_key
-	call printf
-	add esp, 8
-	jmp _start_endless_loop_no_event
-	
-_start_endless_loop_no_key_event:
 	cmp eax, dword[WindowResizeEvent]
-	jne _start_endless_loop_no_event
+	jne _start_endless_loop_no_window_event
 	
 	lea eax, [ebp-60]
 	mov ecx, dword[ebp-72]
@@ -133,8 +118,25 @@ _start_endless_loop_no_key_event:
 	push eax
 	call window_onResize
 	add esp, 4
+	jmp _start_endless_loop_no_event
+	
+_start_endless_loop_no_window_event:
+	lea eax,[ebp-76]
+	push eax
+	call input_processEvent
+	add esp, 4
 	
 _start_endless_loop_no_event:
+	push 27
+	call input_isKeyHeld
+	add esp, 4
+	cmp eax, 0
+	je _start_endless_loop_skip_key_held_print
+	push print_cucc
+	call printf
+	add esp, 4
+	_start_endless_loop_skip_key_held_print:
+
 	lea ecx, [ebp-60]
 	push 0xFF0000FF
 	push ecx
