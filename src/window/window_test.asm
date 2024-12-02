@@ -127,7 +127,7 @@ _start_endless_loop_no_window_event:
 	add esp, 4
 	
 _start_endless_loop_no_event:
-	push 27
+	push 11
 	call input_isKeyHeld
 	add esp, 4
 	cmp eax, 0

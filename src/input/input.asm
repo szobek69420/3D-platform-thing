@@ -6,10 +6,10 @@ section .rodata
 	KEY_RIGHT dd 12
 	KEY_UP dd 13
 	KEY_DOWN dd 14
-	KEY_LEFT_STRING db "left",0
-	KEY_RIGHT_STRING db "right",0
-	KEY_UP_STRING db "up",0
-	KEY_DOWN_STRING db "down",0
+	KEY_LEFT_STRING db "Left",0
+	KEY_RIGHT_STRING db "Right",0
+	KEY_UP_STRING db "Up",0
+	KEY_DOWN_STRING db "Down",0
 
 	KEY_ESCAPE dd 27
 	KEY_ESCAPE_STRING db "Escape",0
