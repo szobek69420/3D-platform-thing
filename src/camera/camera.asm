@@ -22,6 +22,8 @@ section .text
 	extern memset
 	
 	extern vec3_print
+	extern vec3_normalize
+	extern vec3_cross
 	
 	extern mat4_mul
 	extern mat4_view
@@ -31,13 +33,16 @@ section .text
 	global camera_view		;void camera_view(camera* cum, mat4* buffer)
 	global camera_projection	;void camera_projection(camera* cum, mat4* buffer)
 	global camera_viewProjection	;void camera_viewProjection(camera* cum, mat4* buffer)
+	global camera_forward		;void camera_forward(camera* cum, vec3* buffer)
+	global camera_right		;void camera_right(camera* cum, vec3* buffer)
+	global camera_up		;void camera_up(camera* cum, vec3* buffer)
 	
 camera_init:
 	push ebp
 	mov ebp, esp
 	
 	mov eax, dword[ebp+8]		;buffer in eax
-	
+
 	;set position and rotation
 	mov dword[eax], 0
 	mov dword[eax+4], 0
@@ -69,43 +74,11 @@ camera_view:
 	
 	;calculate direction
 	mov eax, dword[ebp+8]		;camera in eax
-	movss xmm0, dword[DEG2RAD]
-	
-	movss xmm1, dword[eax+12]
-	mulss xmm1, xmm0		;pitch in xmm1
-	movss dword[ebp-8], xmm1
-	fld dword[ebp-8]
-	fsin
-	fstp dword[ebp-8]		;sin(pitch) in direction.y
-	
-	sub esp, 4			;temp place for cos(pitch)
-	movss dword[esp], xmm1
-	fld dword[esp]
-	fcos
-	fstp dword[esp]			
-	movss xmm1, dword[esp]		;cos(pitch) in xmm1
-	add esp, 4
-	
-	movss xmm2, dword[eax+16]
-	mulss xmm2, xmm0
-	movss dword[ebp-12], xmm2
-	fld dword[ebp-12]
-	fsin
-	fstp dword[ebp-12]
-	movss xmm2, dword[ebp-12]
-	mulss xmm2, xmm1
-	movss dword[ebp-12], xmm2	;sin(yaw)*cos(pitch) in direction.x
-	
-	movss xmm2, dword[eax+16]
-	mulss xmm2, xmm0
-	movss dword[ebp-4], xmm2
-	fld dword[ebp-4]
-	fcos
-	fstp dword[ebp-4]
-	movss xmm2, dword[ebp-4]
-	mulss xmm2, xmm1
-	movss dword[ebp-4], xmm2
-	xor dword[ebp-4], 0x80000000	;-cos(yaw)*cos(pitch) in direction.z
+	mov ecx, esp
+	push ecx
+	push eax
+	call camera_forward
+	add esp, 8
 	
 	
 	
@@ -170,3 +143,113 @@ camera_viewProjection:
 	mov esp, ebp
 	pop ebp
 	ret
+	
+	
+camera_forward:
+	push ebp
+	mov ebp, esp
+	
+	;calculate direction
+	mov eax, dword[ebp+8]		;camera in eax
+	mov edx, dword[ebp+12]		;buffer in edx
+	movss xmm0, dword[DEG2RAD]
+	
+	movss xmm1, dword[eax+12]
+	mulss xmm1, xmm0		;pitch in xmm1
+	movss dword[edx+4], xmm1
+	fld dword[edx+4]
+	fsin
+	fstp dword[edx+4]		;sin(pitch) in direction.y
+	
+	sub esp, 4			;temp place for cos(pitch)
+	movss dword[esp], xmm1
+	fld dword[esp]
+	fcos
+	fstp dword[esp]			
+	movss xmm1, dword[esp]		;cos(pitch) in xmm1
+	add esp, 4
+	
+	movss xmm2, dword[eax+16]
+	mulss xmm2, xmm0
+	movss dword[edx], xmm2
+	fld dword[edx]
+	fsin
+	fstp dword[edx]
+	movss xmm2, dword[edx]
+	mulss xmm2, xmm1
+	movss dword[edx], xmm2	;sin(yaw)*cos(pitch) in direction.x
+	
+	movss xmm2, dword[eax+16]
+	mulss xmm2, xmm0
+	movss dword[edx+8], xmm2
+	fld dword[edx+8]
+	fcos
+	fstp dword[edx+8]
+	movss xmm2, dword[edx+8]
+	mulss xmm2, xmm1
+	movss dword[edx+8], xmm2
+	xor dword[edx+8], 0x80000000	;-cos(yaw)*cos(pitch) in direction.z
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+
+camera_right:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]		;cum in eax
+	mov ecx, dword[ebp+12]		;buffer in ecx
+	
+	push ecx
+	push eax
+	call camera_forward
+	add esp, 4
+	pop ecx
+	
+	push WORLD_UP
+	push ecx
+	push ecx
+	call vec3_cross
+	call vec3_normalize
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+camera_up:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 12			;forward
+	
+	mov eax, dword[ebp+8]		;cum in eax
+	mov ecx, esp
+	
+	push ecx
+	push eax
+	call camera_forward
+	add esp, 4
+	pop ecx
+	
+	mov eax, dword[ebp+12]		;buffer in eax
+	push WORLD_UP
+	push ecx
+	push eax
+	call vec3_cross
+	call vec3_normalize
+	pop eax
+	pop ecx
+	add esp, 4
+	
+	push eax
+	push ecx
+	push eax
+	call vec3_cross
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	

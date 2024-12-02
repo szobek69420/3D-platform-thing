@@ -51,7 +51,7 @@ section .text
 	extern MousePressEvent
 	extern MouseReleaseEvent
 	
-	global _start:
+	global _start
 _start:
 	push ebp
 	mov ebp, esp
