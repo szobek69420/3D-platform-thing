@@ -374,7 +374,7 @@ _renderTriangle_first_subtriangle_inner_loop_start:
 	cmp ecx, 255
 	jg _renderTriangle_first_subtriangle_inner_loop_continue
 	cmp cl, byte[esi+3]
-	ja _renderTriangle_first_subtriangle_inner_loop_continue	;ja, mert unsigned
+	jae _renderTriangle_first_subtriangle_inner_loop_continue	;ja, mert unsigned
 	
 	mov dword[esi], ebx
 	mov byte[esi+3], cl
@@ -514,7 +514,7 @@ _renderTriangle_second_subtriangle_inner_loop_start:
 	cmp ecx, 255
 	jg _renderTriangle_second_subtriangle_inner_loop_continue
 	cmp cl, byte[esi+3]
-	ja _renderTriangle_second_subtriangle_inner_loop_continue	;ja, mert unsigned
+	jae _renderTriangle_second_subtriangle_inner_loop_continue	;ja, mert unsigned
 	
 	mov dword[esi], ebx
 	mov byte[esi+3], cl

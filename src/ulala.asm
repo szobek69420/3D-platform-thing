@@ -1,4 +1,8 @@
 section .rodata
+	print_float_format db "%.3f",10,0
+	F0p1 dd 0.1
+	
+	ONE_PER_CLOCKS_PER_SECOND dd 0.000001
 	
 section .bss
 	window resb 60
@@ -8,20 +12,34 @@ section .bss
 	pplayer resb 4	
 	pv_matrix resb 64
 	
+	lastFrame resb 4		;clock_t
+	frameHelper resb 4		;clock_t
+	deltaTime resb 4		;float
+	
 section .text
+	extern clock
+
 	extern window_create
 	extern window_pendingEvent
 	extern window_consumeEvent
+	extern window_clearDrawBuffer
+	extern window_showFrame
+	extern window_onResize
 	extern WindowResizeEvent
 
 	extern player_init
 	extern player_update
 	
 	extern camera_init
+	extern camera_viewProjection
+	extern camera_view
 	
 	extern input_init
 	extern input_update
 	extern input_processEvent
+	
+	extern renderable_render
+	extern renderable_createKuba
 	
 	global _start
 	
@@ -50,15 +68,59 @@ _start:
 	mov dword[pplayer], eax
 	add esp, 4
 	
+	;create kuba
+	push kuba
+	call renderable_createKuba
+	add esp, 4
+	
+	call clock
+	mov dword[lastFrame], eax
+	
 _game_loop:
+	;calculate fps start
+	call clock
+	mov dword[frameHelper], eax
+	mov ecx, eax
+	sub eax, dword[lastFrame]
+	mov dword[lastFrame], ecx
+	mov dword[frameHelper], eax
+	fild dword[frameHelper]
+	fld dword[ONE_PER_CLOCKS_PER_SECOND]
+	fmulp
+	fstp dword[deltaTime]
+	;calculate fps end
+
 	call input_update
 	call processEvents
 	
-	push 0
+	push dword[deltaTime]
 	push dword[pplayer]
 	call player_update
-	add esp, 4
+	add esp, 8
 	
+	;clear buffer
+	push 0xFF000000
+	push window
+	call window_clearDrawBuffer
+	add esp, 8
+	
+	;calculate pv matrix
+	push pv_matrix
+	push camera
+	call camera_viewProjection
+	add esp, 8
+	
+	;render kuba
+	push pv_matrix
+	push window
+	push kuba
+	call renderable_render
+	add esp, 12
+	
+	;draw buffer
+	push window
+	call window_showFrame
+	add esp, 4
 	
 	jmp _game_loop
 	
@@ -89,7 +151,7 @@ _processEvent_loop_start:
 	add esp, 8
 	
 	mov eax, dword[event_buffer]
-	cmp eax, dword[WindowResizeEvent]
+	cmp eax, WindowResizeEvent
 	jne _processEvent_not_window_event
 	call onWindowResize
 	
@@ -108,6 +170,26 @@ _processEvent_done:
 onWindowResize:		;void onWindowResize(void)
 	push ebp
 	mov ebp, esp
+	
+	;calculate aspect ratio
+	mov eax, event_buffer
+	mov ecx, camera
+	fild dword[eax+4]
+	fild dword[eax+8]
+	fdivp
+	fstp dword[ecx+32]
+	
+	;update window
+	mov eax, event_buffer
+	mov ecx, window
+	mov edx, dword[event_buffer+4]
+	mov dword[ecx+40], edx
+	mov edx, dword[event_buffer+8]
+	mov dword[ecx+44], edx
+	
+	push window
+	call window_onResize
+	add esp, 4
 	
 	
 	mov esp, ebp
