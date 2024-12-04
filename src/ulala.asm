@@ -4,11 +4,17 @@ section .rodata
 	
 	ONE_PER_CLOCKS_PER_SECOND dd 0.000001
 	
+	kuba1_scale dd 1.0, 3.0, 1.0
+	kuba2_position dd -1.0, -2.0, 0.0
+	kuba3_position dd 1.0, -2.0, 0.0
+	
 section .bss
 	window resb 60
 	event_buffer resb 16
 	camera resb 36
-	kuba resb 84
+	kuba1 resb 84
+	kuba2 resb 84
+	kuba3 resb 84
 	pplayer resb 4	
 	pv_matrix resb 64
 	
@@ -18,6 +24,7 @@ section .bss
 	
 section .text
 	extern clock
+	extern memcpy
 
 	extern window_create
 	extern window_pendingEvent
@@ -68,10 +75,38 @@ _start:
 	mov dword[pplayer], eax
 	add esp, 4
 	
-	;create kuba
-	push kuba
+	;create kubak
+	push kuba1
+	call renderable_createKuba
+	mov dword[esp], kuba2
+	call renderable_createKuba
+	mov dword[esp], kuba3
 	call renderable_createKuba
 	add esp, 4
+	
+	mov eax, kuba1
+	add eax, 72
+	push 12
+	push kuba1_scale
+	push eax
+	call memcpy
+	add esp, 12
+	
+	mov eax, kuba2
+	add eax, 48
+	push 12
+	push kuba2_position
+	push eax
+	call memcpy
+	add esp, 12
+	
+	mov eax, kuba3
+	add eax, 48
+	push 12
+	push kuba3_position
+	push eax
+	call memcpy
+	add esp, 12
 	
 	call clock
 	mov dword[lastFrame], eax
@@ -113,7 +148,11 @@ _game_loop:
 	;render kuba
 	push pv_matrix
 	push window
-	push kuba
+	push kuba1
+	call renderable_render
+	mov dword[esp], kuba2
+	call renderable_render
+	mov dword[esp], kuba3
 	call renderable_render
 	add esp, 12
 	

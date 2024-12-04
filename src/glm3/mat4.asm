@@ -46,6 +46,7 @@ section .text
 	global mat4_view		;void mat4_view(mat4* buffer, vec3* position, vec3* direction, vec3* worldup)
 	global mat4_ortho		;void mat4_ortho(mat4* buffer, float left, float right, float bottom, float top, float near, float far)
 	global mat4_perspective		;void mat4_perspective(mat4* buffer, float fovInDegrees, float aspectXY, float near, float far)
+	global mat4_perspective2	;void mat4_perspective2(mat4* buffer, float fovInDegrees, float aspectXY, float near, float far)
 	
 mat4_print:
 	push ebp
@@ -1125,6 +1126,84 @@ mat4_perspective:
 	mulss xmm4, xmm2
 	divss xmm4, xmm5
 	movss dword[eax+44], xmm4
+	
+	;(3,2): -1
+	mov ecx, dword[minusOne]
+	mov dword[eax+56], ecx
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+mat4_perspective2:		;https://vec3.ca/code/math/projection-direct3d
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;vw
+	sub esp, 4		;vh
+	
+	;fill the matrix with zeros before everything else, so that it doesn't fuck up the xmm registers (because apparently it does)
+	mov eax, dword[ebp+8]
+	push 64
+	push 0
+	push eax
+	call memset
+	add esp, 12
+	
+	;calculate vh
+	movss xmm0, dword[ebp+12]
+	movss xmm1, dword[DEG2RAD]
+	mulss xmm0, xmm1
+	movss xmm1, dword[half]
+	mulss xmm0, xmm1
+	movss dword[ebp-8], xmm0
+	fld dword[ebp-8]
+	fptan
+	fdivp
+	fld dword[ebp+20]		;multiply with znear
+	fmulp
+	fstp dword[ebp-8]
+	
+	;calculate vw
+	movss xmm0, dword[ebp-8]
+	movss xmm1, dword[ebp+16]
+	mulss xmm0, xmm1
+	movss dword[ebp-4], xmm0
+	
+	mov eax, dword[ebp+8]		;buffer in eax
+	
+	;(0,0): 2*znear/vw
+	movss xmm0, dword[ebp+20]
+	movss xmm1, dword[half]
+	mulss xmm0, xmm1
+	movss xmm1, dword[ebp-4]
+	divss xmm0, xmm1
+	movss dword[eax], xmm0
+	
+	;(1,1): 2*znear/vh
+	movss xmm0, dword[ebp+20]
+	movss xmm1, dword[half]
+	mulss xmm0, xmm1
+	movss xmm1, dword[ebp-8]
+	divss xmm0, xmm1
+	movss dword[eax+20], xmm0
+	
+	;(2,2): zfar/(znear-zfar)
+	movss xmm0, dword[ebp+24]
+	movss xmm1, dword[ebp+20]
+	subss xmm1, xmm0
+	divss xmm0, xmm1
+	movss dword[eax+40], xmm0
+	
+	;(2,3): znear*zfear/(znear-zfar)
+	movss xmm0, dword[ebp+24]
+	movss xmm1, dword[ebp+20]
+	movss xmm2, xmm1
+	subss xmm2, xmm0
+	mulss xmm0, xmm1
+	divss xmm0, xmm2
+	movss dword[eax+44], xmm0
 	
 	;(3,2): -1
 	mov ecx, dword[minusOne]

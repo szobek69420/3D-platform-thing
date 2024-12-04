@@ -13,6 +13,8 @@ section .rodata
 	WORLD_UP dd 0.0, 1.0, 0.0
 	WORLD_DOWN dd 0.0, -1.0, 0.0
 	
+	DEFAULT_POSITION dd 0.0, 0.0, 10.0
+	
 	ZERO dd 0.0
 	ONE dd 1.0
 	
@@ -21,6 +23,7 @@ section .text
 	extern printf
 	extern malloc
 	extern free
+	extern memcpy
 	extern input_isKeyHeld
 	extern camera_forward
 	extern camera_right
@@ -64,6 +67,14 @@ player_init:
 _init_no_error:
 	mov ecx, dword[ebp+8]
 	mov dword[eax], ecx		;save cum
+	
+	push eax
+	push 12
+	push DEFAULT_POSITION
+	push ecx
+	call memcpy
+	add esp, 12
+	pop eax
 	
 	mov esp, ebp
 	pop ebp

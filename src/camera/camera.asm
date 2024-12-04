@@ -10,8 +10,8 @@ section .rodata
 	DEG2RAD dd 0.017453293
 
 	DEFAULT_FOV dd 90.0
-	DEFAULT_NEAR_CLIP dd 0.1
-	DEFAULT_FAR_CLIP dd 50.0
+	DEFAULT_NEAR_CLIP dd 0.5
+	DEFAULT_FAR_CLIP dd 20.0
 	DEFAULT_ASPECT_XY dd 1.0
 	
 	WORLD_UP dd 0.0, 1.0, 0.0
@@ -27,7 +27,7 @@ section .text
 	
 	extern mat4_mul
 	extern mat4_view
-	extern mat4_perspective
+	extern mat4_perspective2
 	
 	global camera_init		;void camera_init(camera* buffer);
 	global camera_view		;void camera_view(camera* cum, mat4* buffer)
@@ -106,7 +106,7 @@ camera_projection:
 	push dword[eax+32]
 	push dword[eax+28]
 	push ecx
-	call mat4_perspective
+	call mat4_perspective2
 	add esp, 20
 	
 	ret

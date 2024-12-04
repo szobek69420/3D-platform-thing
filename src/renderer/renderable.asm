@@ -189,17 +189,16 @@ _create_copy_colours_loop_end:
 	
 	
 	;set the other things
-	mov ecx, dword[HALF]
 	mov eax, dword[ebp+20]
 	mov dword[eax+48], 0
 	mov dword[eax+52], 0
-	mov dword[eax+56], ecx
+	mov dword[eax+56], 0
 	
 	mov dword[eax+60], 0
 	mov dword[eax+64], 0
 	mov dword[eax+68], 0
 	
-	mov ecx, dword[HALF]
+	mov ecx, dword[ONE]
 	mov dword[eax+72], ecx
 	mov dword[eax+76], ecx
 	mov dword[eax+80], ecx
