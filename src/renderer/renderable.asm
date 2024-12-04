@@ -305,6 +305,7 @@ _render_calculate_clip_loop_start:
 	add esp, 8
 	
 	;perspective division
+	and dword[edi+12], 0x7FFFFFFF		;abs(w)
 	movss xmm0, dword[ONE]
 	divss xmm0, dword[edi+12]
 	
