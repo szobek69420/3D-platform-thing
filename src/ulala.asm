@@ -26,6 +26,7 @@ section .bss
 	deltaTime resb 4		;float
 	
 	temp_collider resb 4
+	temp_collider_group resb 4
 	
 section .text
 	extern clock
@@ -56,6 +57,11 @@ section .text
 	extern collider_createCollider
 	extern collider_resolveCollision
 	extern collider_printInfo
+	
+	extern colliderGroup_createColliderGroup
+	extern colliderGroup_addCollider
+	extern colliderGroup_collide
+	extern colliderGroup_printInfo
 	
 	global _start
 	
@@ -117,11 +123,20 @@ _start:
 	call memcpy
 	add esp, 12
 	
-	;create temp collider
+	;create temp collider and cg
 	push temp_collider_upper_bound
 	push temp_collider_lower_bound
 	call collider_createCollider
 	mov dword[temp_collider], eax
+	add esp, 8
+	
+	call colliderGroup_createColliderGroup
+	mov dword[temp_collider_group], eax
+	
+	push dword[temp_collider]
+	push dword[temp_collider_group]
+	call colliderGroup_addCollider
+	call colliderGroup_printInfo
 	add esp, 8
 	
 	call clock
@@ -151,10 +166,9 @@ _game_loop:
 	
 	;resolve collision
 	mov eax, dword[pplayer]
-	push dword[temp_collider]
 	push dword[eax+4]
-	call collider_resolveCollision
-	call collider_printInfo
+	push dword[temp_collider_group]
+	call colliderGroup_collide
 	add esp, 8
 	
 	;clear buffer

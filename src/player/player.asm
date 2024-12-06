@@ -35,9 +35,8 @@ section .text
 	extern vec3_scale
 	extern vec3_add
 	extern vec3_normalize
-	
+
 	extern collider_createCollider
-	extern collider_printInfo
 	
 	extern KEY_W
 	extern KEY_A
