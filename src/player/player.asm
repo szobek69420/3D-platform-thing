@@ -1,6 +1,7 @@
 ;layout
 ;struct player{
 ;	Camera* cum;
+;	Collider* collider;
 ;}
 
 section .rodata
@@ -14,6 +15,9 @@ section .rodata
 	WORLD_DOWN dd 0.0, -1.0, 0.0
 	
 	DEFAULT_POSITION dd 0.0, 0.0, 10.0
+	
+	COLLIDER_LOWER_BOUND dd -0.15, -1.5, -0.15
+	COLLIDER_UPPER_BOUND dd 0.15, 1.5, 0.15
 	
 	ZERO dd 0.0
 	ONE dd 1.0
@@ -30,6 +34,10 @@ section .text
 	extern vec3_print
 	extern vec3_scale
 	extern vec3_add
+	extern vec3_normalize
+	
+	extern collider_createCollider
+	extern collider_printInfo
 	
 	extern KEY_W
 	extern KEY_A
@@ -51,7 +59,7 @@ player_init:
 	push ebp
 	mov ebp, esp
 	
-	push 4
+	push 8
 	call malloc
 	add esp, 4
 	cmp eax, 0
@@ -65,6 +73,7 @@ player_init:
 	ret
 	
 _init_no_error:
+	;save camera
 	mov ecx, dword[ebp+8]
 	mov dword[eax], ecx		;save cum
 	
@@ -75,6 +84,17 @@ _init_no_error:
 	call memcpy
 	add esp, 12
 	pop eax
+	
+	;make collider
+	push eax			;save eax
+	push COLLIDER_UPPER_BOUND
+	push COLLIDER_LOWER_BOUND
+	call collider_createCollider
+	add esp, 8
+	mov ecx, eax
+	pop eax 			;restore eax
+	
+	mov dword[eax+4], ecx		;save collider
 	
 	mov esp, ebp
 	pop ebp
@@ -97,6 +117,17 @@ player_destroy:
 player_update:
 	push ebp
 	mov ebp, esp
+	
+	mov eax, dword[ebp+8]
+	mov ecx, dword[eax]		;camera in ecx
+	mov edx, dword[eax+4]
+	add edx, 24			;&(collider->position) in edx
+	push 12
+	push edx
+	push ecx
+	call memcpy
+	add esp, 12
+	
 	
 	push dword[ebp+12]
 	push dword[ebp+8]
@@ -134,6 +165,12 @@ movePlayer:			;void movePlayer(player* player, float deltaTimeInSec)
 	sub dword[esp+4], 12
 	call camera_right
 	add esp, 8
+	
+	mov dword[ebp-8], 0		;make the forward vector flat
+	lea eax, [ebp-12]
+	push eax
+	call vec3_normalize
+	add esp, 4
 	
 	;calculate move scale
 	movss xmm0, dword[ebp+16]
@@ -251,7 +288,8 @@ movePlayerHelper:		;void movePlayerHelper(player* player, vec3* direction, float
 	add esp, 12
 	
 	mov eax, dword[ebp+8]
-	mov eax, dword[eax]	;&(player->camera->position) in eax
+	mov eax, dword[eax+4]
+	add eax, 24		;&(player->collider->position) in eax
 	mov ecx, esp
 	push ecx
 	push eax

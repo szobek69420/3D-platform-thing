@@ -8,6 +8,7 @@
 section .rodata
 	print_collider_group_count db "Active collider group count: %d",10,0
 	print_collider_group_creation_error db "Could not create collider group", 10,0
+	print_collider_group_bounds_1 db "Collider group info:",10,"Bounds:",10,0
 
 section .data
 	colliderGroupCount dd 0

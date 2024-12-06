@@ -25,6 +25,12 @@ section .rodata
 	print_collider_count db "Number of active colliders: %d",10,0
 	print_collider_creation_error db "Collider could not be created",10,0
 	
+	print_collider_info1 db "Collider info:",10,0
+	print_collider_info2 db "position: ",0
+	print_collider_info3 db "velocity: ",0
+	print_collider_info4 db "lower bound: ",0
+	print_collider_info5 db "upper bound: ",0
+	
 	VERY_LARGE_PENETRATION dd 100000.0
 
 section .data
@@ -37,11 +43,14 @@ section .text
 	extern memcpy
 	
 	extern vec3_add
+	extern vec3_print
 	
 	global collider_printColliderCount
 	
 	global collider_createCollider		;collider* collider_createCollider(vec3* lowerBound, vec3* uppderBound)
 	global collider_destroyCollider		;void collider_destroyCollider(collider* collider)
+	
+	global collider_printInfo		;void collider_printInfo(collider* collider)
 	
 	global collider_resolveCollision	;void collider_resolveCollision(collider* dynamic, collider* static)
 	
@@ -82,7 +91,7 @@ _createCollider_no_error:
 	call memcpy
 	
 	;copy upper bound
-	add dword[esp], 4
+	add dword[esp], 12
 	mov eax, dword[ebp+16]
 	mov dword[esp+4], eax
 	call memcpy
@@ -213,7 +222,7 @@ _resolveCollision_not_neg_z:
 
 	mov edx, eax
 	mov eax, ecx		;static in eax
-	mov ecx, eax		;dynamic in ecx
+	mov ecx, edx		;dynamic in ecx
 	
 	
 	movss xmm0, dword[eax]
@@ -412,5 +421,54 @@ collider_areCollidersInContact:		;int collider_areCollidersInContact(collider* c
 _areColliders_inContact_no_collision:
 	pop eax
 	add esp, 48
+	pop ebp
+	ret
+	
+	
+	
+collider_printInfo:
+	push ebp
+	push ebx
+	mov ebp, esp
+	
+	push print_collider_info1
+	call printf
+	add esp, 4
+	
+	mov ebx, dword[ebp+12]
+	
+	lea eax, [ebx+24]
+	push eax
+	push print_collider_info2
+	call printf
+	add esp, 4
+	call vec3_print
+	add esp, 4
+	
+	lea eax, [ebx+36]
+	push eax
+	push print_collider_info3
+	call printf
+	add esp, 4
+	call vec3_print
+	add esp, 4
+	
+	push ebx
+	push print_collider_info4
+	call printf
+	add esp, 4
+	call vec3_print
+	add esp, 4
+	
+	lea eax, [ebx+12]
+	push eax
+	push print_collider_info5
+	call printf
+	add esp, 4
+	call vec3_print
+	add esp, 4
+	
+	mov esp, ebp
+	pop ebx
 	pop ebp
 	ret

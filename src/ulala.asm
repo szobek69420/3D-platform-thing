@@ -8,6 +8,9 @@ section .rodata
 	kuba2_position dd -1.0, -2.0, 0.0
 	kuba3_position dd 1.0, -2.0, 0.0
 	
+	temp_collider_lower_bound dd -1.0, -1.0, -1.0
+	temp_collider_upper_bound dd 1.0, 1.0, 1.0
+	
 section .bss
 	window resb 60
 	event_buffer resb 16
@@ -21,6 +24,8 @@ section .bss
 	lastFrame resb 4		;clock_t
 	frameHelper resb 4		;clock_t
 	deltaTime resb 4		;float
+	
+	temp_collider resb 4
 	
 section .text
 	extern clock
@@ -47,6 +52,10 @@ section .text
 	
 	extern renderable_render
 	extern renderable_createKuba
+	
+	extern collider_createCollider
+	extern collider_resolveCollision
+	extern collider_printInfo
 	
 	global _start
 	
@@ -108,6 +117,13 @@ _start:
 	call memcpy
 	add esp, 12
 	
+	;create temp collider
+	push temp_collider_upper_bound
+	push temp_collider_lower_bound
+	call collider_createCollider
+	mov dword[temp_collider], eax
+	add esp, 8
+	
 	call clock
 	mov dword[lastFrame], eax
 	
@@ -131,6 +147,14 @@ _game_loop:
 	push dword[deltaTime]
 	push dword[pplayer]
 	call player_update
+	add esp, 8
+	
+	;resolve collision
+	mov eax, dword[pplayer]
+	push dword[temp_collider]
+	push dword[eax+4]
+	call collider_resolveCollision
+	call collider_printInfo
 	add esp, 8
 	
 	;clear buffer
