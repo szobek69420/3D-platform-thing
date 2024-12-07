@@ -16,6 +16,7 @@ amogus:
 	nasm -felf32 -o ./build/renderable.o ./renderer/renderable.asm
 	nasm -felf32 -o ./build/collider.o ./physics/collider.asm
 	nasm -felf32 -o ./build/collider_group.o ./physics/collider_group.asm
+	nasm -felf32 -o ./build/physics.o ./physics/physics.asm
 	nasm -felf32 -o ./build/input.o ./input/input.asm
 	nasm -felf32 -o ./build/camera.o ./camera/camera.asm
 	nasm -felf32 -o ./build/player.o ./player/player.asm
@@ -31,6 +32,7 @@ amogus:
 	./build/renderable.o \
 	./build/collider.o \
 	./build/collider_group.o \
+	./build/physics.o \
 	./build/input.o \
 	./build/camera.o \
 	./build/player.o \

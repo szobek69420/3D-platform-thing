@@ -1,11 +1,13 @@
 ;layout:
 ;struct collider{
-;	vec3 lowerBound		;0
-;	vec3 upperBound		;12
-;	vec3 position		;24
-;	vec3 velocity		;36
-;	int collisions		;48, stores the collision directions in the last frame
-;}	//52 bytes
+;	vec3 lowerBound			;0
+;	vec3 upperBound			;12
+;	vec3 position			;24
+;	vec3 velocity			;36
+;	int collisions			;48, stores the collision directions in the last frame
+;	int colliderType		;52	//this is an optional identifier for the collider
+;	collider* lastCollision		;56	//gets set only for the dynamic colliders
+;}	//60 bytes
 
 COLLISION_POS_X equ 0b1
 COLLISION_NEG_X equ 0b10
@@ -52,7 +54,7 @@ section .text
 	
 	global collider_printInfo		;void collider_printInfo(collider* collider)
 	
-	global collider_resolveCollision	;void collider_resolveCollision(collider* dynamic, collider* static)
+	global collider_resolveCollision	;int collider_resolveCollision(collider* dynamic, collider* static)
 	
 collider_printColliderCount:
 	push dword[colliderCount]
@@ -69,7 +71,7 @@ collider_createCollider:
 	mov ebp, esp
 	
 	;alloc collider
-	push 52
+	push 60
 	call malloc
 	mov ebx, eax
 	add esp, 4
@@ -97,13 +99,16 @@ _createCollider_no_error:
 	call memcpy
 	add esp, 12
 	
-	;set position and velocity
+	;set position, velocity, collisions, type and last collision
 	mov dword[ebx+24], 0
 	mov dword[ebx+28], 0
 	mov dword[ebx+32], 0
 	mov dword[ebx+36], 0
 	mov dword[ebx+40], 0
 	mov dword[ebx+44], 0
+	mov dword[ebx+48], 0
+	mov dword[ebx+52], 0
+	mov dword[ebx+56], 0
 	
 	mov eax, ebx
 	inc dword[colliderCount]
@@ -141,8 +146,13 @@ collider_resolveCollision:
 	call collider_areCollidersInContact
 	add esp, 8
 	cmp eax, 0
-	je _resolveCollision_done
+	jne _resolveCollision_touch
 	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+_resolveCollision_touch:
 	;calculate new bounds
 	mov eax, dword[ebp+8]		;dynamic in eax
 	lea edx, [eax]
@@ -321,6 +331,10 @@ _resolveCollision_neg_z:
 
 	
 _resolveCollision_done:
+	mov ecx, dword[ebp+8]
+	mov edx, dword[ebp+12]
+	mov dword[ecx+56], edx
+	mov eax, 69
 	mov esp, ebp
 	pop ebp
 	ret

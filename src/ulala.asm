@@ -1,8 +1,12 @@
 section .rodata
-	print_float_format db "%.3f",10,0
 	F0p1 dd 0.1
+	ONE dd 1.0
 	
 	ONE_PER_CLOCKS_PER_SECOND dd 0.000001
+	
+	print_float_format db "%.3f",10,0
+	print_frame_count db "FPS: %d",10,0
+	
 	
 	kuba1_scale dd 1.0, 3.0, 1.0
 	kuba2_position dd -1.0, -2.0, 0.0
@@ -28,9 +32,14 @@ section .bss
 	temp_collider resb 4
 	temp_collider_group resb 4
 	
+section .data
+	frameCount dd 0
+	lastSecond dd 0.0
+	
 section .text
 	extern clock
 	extern memcpy
+	extern printf
 
 	extern window_create
 	extern window_pendingEvent
@@ -63,6 +72,12 @@ section .text
 	extern colliderGroup_collide
 	extern colliderGroup_printInfo
 	
+	extern physics_init
+	extern physics_deinit
+	extern physics_step
+	extern physics_registerDynamicCollider
+	extern physics_registerColliderGroup
+	
 	global _start
 	
 _start:
@@ -78,6 +93,9 @@ _start:
 	
 	;init input
 	call input_init
+	
+	;init physics
+	call physics_init
 	
 	;init camera
 	push camera
@@ -136,8 +154,19 @@ _start:
 	push dword[temp_collider]
 	push dword[temp_collider_group]
 	call colliderGroup_addCollider
-	call colliderGroup_printInfo
 	add esp, 8
+	
+	;add colliders and collider groups to physics
+	mov eax, dword[pplayer]
+	mov eax, dword[eax+4]
+	push eax
+	call physics_registerDynamicCollider
+	add esp, 4
+	
+	mov eax, dword[temp_collider_group]
+	push eax
+	call physics_registerColliderGroup
+	add esp, 4
 	
 	call clock
 	mov dword[lastFrame], eax
@@ -154,6 +183,23 @@ _game_loop:
 	fld dword[ONE_PER_CLOCKS_PER_SECOND]
 	fmulp
 	fstp dword[deltaTime]
+	
+	movss xmm0, dword[lastSecond]
+	movss xmm1, dword[deltaTime]
+	addss xmm0, xmm1
+	movss dword[lastSecond], xmm0
+	movss xmm1, dword[ONE]
+	ucomiss xmm0, xmm1
+	jb _skip_fps_print
+	
+	push dword[frameCount]
+	push print_frame_count
+	call printf
+	add esp, 8
+	mov dword[frameCount], 0
+	mov dword[lastSecond], 0
+_skip_fps_print:
+	inc dword[frameCount]
 	;calculate fps end
 
 	call input_update
@@ -164,12 +210,10 @@ _game_loop:
 	call player_update
 	add esp, 8
 	
-	;resolve collision
-	mov eax, dword[pplayer]
-	push dword[eax+4]
-	push dword[temp_collider_group]
-	call colliderGroup_collide
-	add esp, 8
+	;physics update
+	push dword[deltaTime]
+	call physics_step
+	add esp, 4
 	
 	;clear buffer
 	push 0xFF000000
@@ -200,6 +244,9 @@ _game_loop:
 	add esp, 4
 	
 	jmp _game_loop
+	
+	;deinit physics
+	call physics_deinit
 	
 	;call exit()
 _game_exit:

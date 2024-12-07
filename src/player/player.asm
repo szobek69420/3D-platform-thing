@@ -151,10 +151,16 @@ movePlayer:			;void movePlayer(player* player, float deltaTimeInSec)
 	
 	sub esp, 12			;forward
 	sub esp, 12			;right
-	sub esp, 4			;move scale
 	
 	mov ebx, dword[ebp+12]
 	mov ebx, dword[ebx]			;cum in eax
+	
+	;set velocity to zero
+	mov eax, dword[ebp+12]
+	mov eax, dword[eax+4]
+	mov dword[eax+36], 0
+	mov dword[eax+40], 0
+	mov dword[eax+44], 0
 	
 	;calculate forward and right
 	lea eax, [ebp-12]
@@ -171,10 +177,7 @@ movePlayer:			;void movePlayer(player* player, float deltaTimeInSec)
 	call vec3_normalize
 	add esp, 4
 	
-	;calculate move scale
-	movss xmm0, dword[ebp+16]
-	mulss xmm0, dword[MOVEMENT_SPEED]
-	movss dword[ebp-28], xmm0
+	
 	
 	push KEY_W
 	call input_isKeyHeld
@@ -182,7 +185,7 @@ movePlayer:			;void movePlayer(player* player, float deltaTimeInSec)
 	cmp eax, 0
 	je _movePlayer_no_forward
 	lea eax, [ebp-12]
-	push dword[ebp-28]
+	push dword[MOVEMENT_SPEED]
 	push eax
 	push dword[ebp+12]
 	call movePlayerHelper
@@ -200,7 +203,7 @@ _movePlayer_no_forward:
 	xor dword[ebp-4], 0x80000000
 	
 	lea eax, [ebp-12]
-	push dword[ebp-28]
+	push dword[MOVEMENT_SPEED]
 	push eax
 	push dword[ebp+12]
 	call movePlayerHelper
@@ -214,7 +217,7 @@ _movePlayer_no_backward:
 	je _movePlayer_no_right
 	
 	lea eax, [ebp-24]
-	push dword[ebp-28]
+	push dword[MOVEMENT_SPEED]
 	push eax
 	push dword[ebp+12]
 	call movePlayerHelper
@@ -232,7 +235,7 @@ _movePlayer_no_right:
 	xor dword[ebp-16], 0x80000000
 	
 	lea eax, [ebp-24]
-	push dword[ebp-28]
+	push dword[MOVEMENT_SPEED]
 	push eax
 	push dword[ebp+12]
 	call movePlayerHelper
@@ -245,7 +248,7 @@ _movePlayer_no_left:
 	cmp eax, 0
 	je _movePlayer_no_up
 	
-	push dword[ebp-28]
+	push dword[MOVEMENT_SPEED]
 	push WORLD_UP
 	push dword[ebp+12]
 	call movePlayerHelper
@@ -258,7 +261,7 @@ _movePlayer_no_up:
 	cmp eax, 0
 	je _movePlayer_no_down
 	
-	push dword[ebp-28]
+	push dword[MOVEMENT_SPEED]
 	push WORLD_DOWN
 	push dword[ebp+12]
 	call movePlayerHelper
@@ -273,22 +276,23 @@ _movePlayer_no_down:
 	
 	
 
-movePlayerHelper:		;void movePlayerHelper(player* player, vec3* direction, float deltaTime)
+movePlayerHelper:		;void movePlayerHelper(player* player, vec3* direction, float velocity)
 	push ebp
 	mov ebp, esp
 	
-	sub esp, 12 		;space for the scaled direction
+	sub esp, 12		;scaled velocity
 	
-	mov eax, esp
+	
 	push dword[ebp+16]
 	push dword[ebp+12]
+	lea eax, [ebp-12]
 	push eax
 	call vec3_scale
 	add esp, 12
 	
 	mov eax, dword[ebp+8]
 	mov eax, dword[eax+4]
-	add eax, 24		;&(player->collider->position) in eax
+	add eax, 36		;&(player->collider->velocity) in eax
 	mov ecx, esp
 	push ecx
 	push eax
