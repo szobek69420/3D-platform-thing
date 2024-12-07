@@ -3,9 +3,13 @@ section .rodata
 	print_deltas_format db "%.3f, %.3f",10,0
 	print_line_break_format db 10,0
 	print_int_format db "%d",10,0
+	print_cull_debug db "culled",10,0
 
 	HALF dd 0.5
 	F255 dd 255.0
+	
+	ONE dd 1.0
+	MINUS_ONE dd -1.0
 	
 section .bss
 	FRAMEBUFFER_BYTES_PER_LINE resb 4
@@ -14,6 +18,9 @@ section .text
 	extern printf
 	extern memcpy
 	extern memset
+	
+	extern vec3_sub
+	extern vec3_cross
 	
 	extern FRAMEBUFFER_WIDTH
 	extern FRAMEBUFFER_HEIGHT
@@ -69,6 +76,16 @@ renderer_renderTriangle:
 	push esi
 	push edi
 	mov ebp, esp
+	
+	;check for culling
+	push dword[ebp+36]
+	push dword[ebp+32]
+	push dword[ebp+28]
+	call _renderHelper_cull
+	add esp, 12
+	cmp eax, 0
+	jne _renderTriangle_done
+	
 	
 	mov eax, dword[FRAMEBUFFER_WIDTH]
 	shl eax, 2
@@ -554,3 +571,138 @@ _renderTriangle_done:
 	pop ebx
 	pop ebp
 	ret
+	
+	
+;checks if the triangle is surely out of the camera frustum or is a back face
+_renderHelper_cull:	;int renderHelper(vec3* a, vec3* b, vec3* c) //returns 0 if not culled
+	push ebp
+	push ebx
+	mov ebp, esp
+	
+	mov eax, dword[ebp+12]		;a in eax
+	mov ecx, dword[ebp+16]		;b in ecx
+	mov edx, dword[ebp+20]		;c in edx
+	
+	;check for out of bounds triangles
+	movss xmm0, dword[MINUS_ONE]
+	
+	movss xmm1, dword[eax]
+	ucomiss xmm0, xmm1
+	jb _cull_not_neg_x
+	movss xmm1, dword[ecx]
+	ucomiss xmm0, xmm1
+	jb _cull_not_neg_x
+	movss xmm1, dword[edx]
+	ucomiss xmm0, xmm1
+	jb _cull_not_neg_x
+	jmp _cull_cull
+_cull_not_neg_x:
+
+	movss xmm1, dword[eax+4]
+	ucomiss xmm0, xmm1
+	jb _cull_not_neg_y
+	movss xmm1, dword[ecx+4]
+	ucomiss xmm0, xmm1
+	jb _cull_not_neg_y
+	movss xmm1, dword[edx+4]
+	ucomiss xmm0, xmm1
+	jb _cull_not_neg_y
+	jmp _cull_cull
+_cull_not_neg_y:
+
+
+	mov ebx, dword[eax+8]
+	and ebx, 0x80000000
+	cmp ebx, 0
+	je _cull_not_neg_z
+	mov ebx, dword[ecx+8]
+	and ebx, 0x80000000
+	cmp ebx, 0
+	je _cull_not_neg_z
+	mov ebx, dword[edx+8]
+	and ebx, 0x80000000
+	cmp ebx, 0
+	je _cull_not_neg_z
+	jmp _cull_cull
+_cull_not_neg_z:
+
+	movss xmm0, dword[ONE]
+	
+	movss xmm1, dword[eax]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_x
+	movss xmm1, dword[ecx]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_x
+	movss xmm1, dword[edx]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_x
+	jmp _cull_cull
+_cull_not_pos_x:
+
+	movss xmm1, dword[eax+4]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_y
+	movss xmm1, dword[ecx+4]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_y
+	movss xmm1, dword[edx+4]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_y
+	jmp _cull_cull
+_cull_not_pos_y:
+
+	movss xmm1, dword[eax+8]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_z
+	movss xmm1, dword[ecx+8]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_z
+	movss xmm1, dword[edx+8]
+	ucomiss xmm0, xmm1
+	ja _cull_not_pos_z
+	jmp _cull_cull
+_cull_not_pos_z:
+
+	;backface cull
+	sub esp, 12		;a-b
+	sub esp, 12		;c-b
+	
+	lea eax, [ebp-12]
+	push dword[ebp+16]
+	push dword[ebp+12]
+	push eax
+	call vec3_sub
+	mov eax, dword[ebp+20]
+	mov dword[esp+4], eax
+	lea eax, [ebp-24]
+	mov dword[esp], eax
+	call vec3_sub
+	add esp, 12
+	
+	lea eax, [ebp-12]
+	lea ecx, [ebp-24]
+	push ecx
+	push eax
+	push eax
+	call vec3_cross
+	add esp, 12
+	
+	mov eax, dword[ebp-4]
+	and eax, 0x80000000
+	cmp eax, 0
+	jne _cull_cull
+	
+	
+	
+	mov eax, 0
+	jmp _cull_done
+	
+_cull_cull:
+	mov eax, 69
+_cull_done:
+	mov esp, ebp
+	pop ebx
+	pop ebp
+	ret
+	
