@@ -32,6 +32,8 @@ section .bss
 	temp_collider resb 4
 	temp_collider_group resb 4
 	
+	temp_chomk resb 20
+	
 section .data
 	frameCount dd 0
 	lastSecond dd 0.0
@@ -77,6 +79,8 @@ section .text
 	extern physics_step
 	extern physics_registerDynamicCollider
 	extern physics_registerColliderGroup
+	
+	extern chomk_generateChomk
 	
 	global _start
 	
@@ -156,6 +160,7 @@ _start:
 	call colliderGroup_addCollider
 	add esp, 8
 	
+	
 	;add colliders and collider groups to physics
 	mov eax, dword[pplayer]
 	mov eax, dword[eax+4]
@@ -167,6 +172,14 @@ _start:
 	push eax
 	call physics_registerColliderGroup
 	add esp, 4
+	
+	;generate temp chomk
+	push 0
+	push 0
+	push 0
+	call chomk_generateChomk
+	mov dword[temp_chomk], eax
+	add esp, 12
 	
 	call clock
 	mov dword[lastFrame], eax

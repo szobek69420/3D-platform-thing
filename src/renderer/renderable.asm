@@ -18,6 +18,7 @@ section .rodata
 	Z_AXIS dd 0.0, 0.0, 1.0
 	print_int_format db "%d",10,0
 	print_renderable_data_format db "vertex count: %d, face count %d",10,0
+	print_space_format db " ",0
 	print_float_no_linebreak_format db "%.2f ",0
 	print_int_no_linebreak_format db "%d ",0
 	print_int_hex_no_linebreak_format db "0x%x ",0
@@ -479,6 +480,10 @@ _print_vertices_loop_start:
 	fstp qword[esp+4]
 	call printf
 	add esp, 12
+	
+	push print_space_format
+	call printf
+	add esp, 4cle
 	
 	add esi, 12
 	dec edi

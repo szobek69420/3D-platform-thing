@@ -20,6 +20,8 @@ amogus:
 	nasm -felf32 -o ./build/input.o ./input/input.asm
 	nasm -felf32 -o ./build/camera.o ./camera/camera.asm
 	nasm -felf32 -o ./build/player.o ./player/player.asm
+	nasm -felf32 -o ./build/blocks.o ./world/blocks.asm
+	nasm -felf32 -o ./build/chomk.o ./world/chomk.asm
 	nasm -felf32 -o ./build/ulala.o ./ulala.asm
 	gcc -m32 -o ./build/program \
 	./build/vector.o \
@@ -36,5 +38,7 @@ amogus:
 	./build/input.o \
 	./build/camera.o \
 	./build/player.o \
+	./build/blocks.o \
+	./build/chomk.o \
 	./build/ulala.o -lX11 -nostartfiles
 	find . -name "*.o" -delete
