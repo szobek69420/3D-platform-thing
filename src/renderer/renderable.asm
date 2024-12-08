@@ -483,7 +483,7 @@ _print_vertices_loop_start:
 	
 	push print_space_format
 	call printf
-	add esp, 4cle
+	add esp, 4
 	
 	add esi, 12
 	dec edi

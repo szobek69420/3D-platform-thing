@@ -32,7 +32,7 @@ section .bss
 	temp_collider resb 4
 	temp_collider_group resb 4
 	
-	temp_chomk resb 20
+	temp_chomk resb 4
 	
 section .data
 	frameCount dd 0
@@ -81,6 +81,7 @@ section .text
 	extern physics_registerColliderGroup
 	
 	extern chomk_generateChomk
+	extern chomk_renderChomk
 	
 	global _start
 	
@@ -249,6 +250,13 @@ _skip_fps_print:
 	call renderable_render
 	mov dword[esp], kuba3
 	call renderable_render
+	add esp, 12
+	
+	;render chomk
+	push pv_matrix
+	push window
+	push dword[temp_chomk]
+	call chomk_renderChomk
 	add esp, 12
 	
 	;draw buffer

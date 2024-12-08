@@ -50,5 +50,5 @@ section .rodata
 	global BLOCK_VERTICES_NEG_Y
 	
 	;block indices
-	BLOCK_INDICES dd 1,0,2, 0,3,2
+	BLOCK_INDICES dd 1,2,0, 0,2,3
 	global BLOCK_INDICES

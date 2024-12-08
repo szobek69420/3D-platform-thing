@@ -38,10 +38,12 @@ section .text
 	extern vector_destroy
 	
 	extern vec3_add
+	extern vec3_print
 	
 	extern renderable_create
 	extern renderable_destroy
 	extern renderable_print
+	extern renderable_render
 	
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
@@ -54,6 +56,8 @@ section .text
 	
 	global chomk_generateChomk			;chomk* chomk_generateChomk(int seed, int chomkX, int chomkZ)
 	global chomk_destroyChomk			;void chomk_destroyChomk(chomk* chomk)
+	
+	global chomk_renderChomk			;void chomk_renderChomk(chomk* chomk, ScreenInfo* display, mat4* pv)
 	
 chomk_printChomkCount:
 	push dword[chomkCount]
@@ -181,28 +185,28 @@ _generateChomk_chomk_blocks_malloc_no_error:
 	xor eax, eax
 _generateChomk_terrain_generation_y_loop_start:
 	xor ecx, ecx
-_generateChomk_terrain_generation_x_loop_start:
-	xor edx, edx
-_generateChomk_terrain_generation_z_loop_start:
-	cmp edx, eax
-	jle _generateChomk_terrain_dirt
-	jmp _generateChomk_terrain_air
-	_generateChomk_terrain_air:
-		mov dword[ebx], BLOCK_AIR
-		jmp _generateChomk_terrain_block_done
-	_generateChomk_terrain_dirt:
-		mov dword[ebx], BLOCK_DIRT
-		jmp _generateChomk_terrain_block_done
-	_generateChomk_terrain_block_done:
-	
-	inc ebx
-	inc edx
-	cmp edx, CHOMK_WIDTH_PLUS_TWO
-	jl _generateChomk_terrain_generation_z_loop_start
-	
-	inc ecx
-	cmp ecx, CHOMK_WIDTH_PLUS_TWO
-	jl _generateChomk_terrain_generation_x_loop_start
+	_generateChomk_terrain_generation_x_loop_start:
+		xor edx, edx
+		_generateChomk_terrain_generation_z_loop_start:
+			cmp eax, edx
+			jle _generateChomk_terrain_dirt
+			jmp _generateChomk_terrain_air
+			_generateChomk_terrain_air:
+				mov byte[ebx], BLOCK_AIR
+				jmp _generateChomk_terrain_block_done
+			_generateChomk_terrain_dirt:
+				mov byte[ebx], BLOCK_DIRT
+				jmp _generateChomk_terrain_block_done
+			_generateChomk_terrain_block_done:
+			
+			inc ebx
+			inc edx
+			cmp edx, CHOMK_WIDTH_PLUS_TWO
+			jl _generateChomk_terrain_generation_z_loop_start
+		
+		inc ecx
+		cmp ecx, CHOMK_WIDTH_PLUS_TWO
+		jl _generateChomk_terrain_generation_x_loop_start
 	
 	inc eax
 	cmp eax, CHOMK_HEIGHT_PLUS_TWO
@@ -240,7 +244,6 @@ _generateChomk_terrain_generation_z_loop_start:
 	add ebx, CHOMK_BLOCKS_PER_LAYER	;current block in ebx
 	xor esi, esi			;current vertex count
 	mov edi, 1			;index variable
-	movss xmm0, dword[ONE]		;one in xmm0
 _generateChomk_mesh_y_loop_start:
 	
 	mov edx, dword[ebp-64]
@@ -261,8 +264,14 @@ _generateChomk_mesh_y_loop_start:
 		
 		_generateChomk_mesh_z_loop_start:
 		
+			xor edx, edx
+			mov dl, byte[ebx]
+			cmp edx, BLOCK_AIR
+			je _generateChomk_air
+		
 			;pos y
-			mov edx, dword[ebx+CHOMK_BLOCKS_PER_LAYER]
+			xor edx, edx
+			mov dl, byte[ebx+CHOMK_BLOCKS_PER_LAYER]
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_pos_y_not_visible
 			
@@ -377,14 +386,17 @@ _generateChomk_mesh_y_loop_start:
 			lea eax, [ebp-52]
 			push eax
 			call vector_push_back
+			call vector_push_back
 			add esp, 8
 			
 			
 			add esi, 4
 			
 			_generateChomk_pos_y_not_visible:
-		
-		
+			
+			
+			_generateChomk_air:
+			movss xmm0, dword[ONE]
 			movss xmm1, dword[ebp-68]
 			addss xmm1, xmm0
 			movss dword[ebp-68], xmm1
@@ -397,9 +409,11 @@ _generateChomk_mesh_y_loop_start:
 		pop edi				;restore x loop index
 		inc ebx
 		
+		movss xmm0, dword[ONE]
 		movss xmm1, dword[ebp-76]
 		addss xmm1, xmm0
 		movss dword[ebp-76], xmm1
+		
 		
 		inc edi
 		cmp edi, CHOMK_WIDTH
@@ -409,6 +423,7 @@ _generateChomk_mesh_y_loop_start:
 	pop edi				;restore y loop index
 	add ebx, CHOMK_WIDTH_PLUS_TWO
 	
+	movss xmm0, dword[ONE]
 	movss xmm1, dword[ebp-72]
 	addss xmm1, xmm0
 	movss dword[ebp-72], xmm1
@@ -416,7 +431,6 @@ _generateChomk_mesh_y_loop_start:
 	inc edi
 	cmp edi, CHOMK_HEIGHT
 	jle _generateChomk_mesh_y_loop_start
-	
 	
 	
 	;load renderable
@@ -430,8 +444,8 @@ _generateChomk_mesh_y_loop_start:
 	push dword[ebp-8]		;vertices
 	push eax
 	call renderable_create
-	call renderable_print
 	add esp, 24
+
 	
 	;free resources
 	lea eax, [ebp-20]
@@ -481,6 +495,23 @@ chomk_destroyChomk:
 	push dword[ebp+8]
 	call free
 	add esp, 4
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+	
+chomk_renderChomk:
+	push ebp
+	mov ebp, esp
+	
+	mov eax, dword[ebp+8]		;chomk in eax
+	
+	push dword[ebp+16]
+	push dword[ebp+12]
+	push dword[eax+12]
+	call renderable_render
 	
 	mov esp, ebp
 	pop ebp
