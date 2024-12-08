@@ -30,3 +30,22 @@ section .rodata
 	global BLOCK_GRASS_COLOURS
 	global BLOCK_DIRT_COLOURS
 	global BLOCK_STONE_COLOURS
+	
+	;block vertices
+	BLOCK_VERTICES_NEG_Z dd -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, 0.5, -0.5,  -0.5, 0.5, -0.5
+	BLOCK_VERTICES_NEG_X dd -0.5, -0.5, 0.5,  -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,  -0.5, 0.5, 0.5
+	BLOCK_VERTICES_POS_Z dd 0.5, -0.5, 0.5,  -0.5, -0.5, 0.5,  -0.5, 0.5, 0.5,  0.5, 0.5, 0.5
+	BLOCK_VERTICES_POS_X dd 0.5, -0.5, -0.5,  0.5, -0.5, 0.5,  0.5, 0.5, 0.5,  0.5, 0.5, -0.5
+	BLOCK_VERTICES_POS_Y dd 0.5, 0.5, 0.5,  -0.5, 0.5, 0.5,  -0.5, 0.5, -0.5,  0.5, 0.5, -0.5
+	BLOCK_VERTICES_NEG_Y dd 0.5, -0.5, -0.5,  -0.5, -0.5 -0.5,  -0.5, -0.5, 0.5,  0.5, -0.5, 0.5
+	
+	global BLOCK_VERTICES_NEG_Z
+	global BLOCK_VERTICES_NEG_X
+	global BLOCK_VERTICES_POS_Z
+	global BLOCK_VERTICES_POS_X
+	global BLOCK_VERTICES_POS_Y
+	global BLOCK_VERTICES_NEG_Y
+	
+	;block indices
+	BLOCK_INDICES dd 1,0,2, 0,3,2
+	global BLOCK_INDICES
