@@ -54,3 +54,59 @@ section .rodata
 	;block indices
 	BLOCK_INDICES dd 1,2,0, 0,2,3
 	global BLOCK_INDICES
+	
+	
+	TERRAIN_GEN_HELPER_1 dd 0.013
+	TERRAIN_GEN_HELPER_2 dd 0.021
+	TERRAIN_GEN_HELPER_3 dd 15.0
+	TERRAIN_GEN_HELPER_4 dd 18.0
+	
+	
+section .text
+	global blocks_getTerrainHeight		;extern int blocks_getTerrainHeight(int x, int z)
+	
+blocks_getTerrainHeight:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;float x
+	sub esp, 4		;float z
+	sub esp, 4		;float height
+	
+	;convert arguments to float
+	fild dword[ebp+8]
+	fstp dword[ebp-4]
+	fild dword[ebp+12]
+	fstp dword[ebp-8]
+	
+	;temporary function
+	movss xmm0, dword[TERRAIN_GEN_HELPER_1]
+	movss xmm1, dword[ebp-4]
+	mulss xmm0, xmm1
+	
+	movss xmm1, dword[TERRAIN_GEN_HELPER_2]
+	movss xmm2, dword[ebp-8]
+	mulss xmm1, xmm2
+	addss xmm0, xmm1
+	movss dword[ebp-12], xmm0
+	
+	fld dword[ebp-12]
+	fsin
+	fstp dword[ebp-12]
+	
+	movss xmm0, dword[TERRAIN_GEN_HELPER_3]
+	movss xmm1, dword[ebp-12]
+	mulss xmm0, xmm1
+	movss xmm1, dword[TERRAIN_GEN_HELPER_4]
+	addss xmm0, xmm1
+	movss dword[ebp-12], xmm0
+	
+	;convert the result to int
+	fld dword[ebp-12]
+	fistp dword[ebp-12]
+	
+	mov eax, dword[ebp-12]
+	
+	mov esp, ebp
+	pop ebp
+	ret

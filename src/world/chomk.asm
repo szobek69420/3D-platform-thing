@@ -47,12 +47,13 @@ section .text
 	
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
+	extern BLOCK_GRASS
 	
 	extern BLOCK_COLOUR_INDEX
-	
 	extern BLOCK_INDICES
 	extern BLOCK_VERTICES_INDEX
-	extern BLOCK_VERTICES_POS_Y
+	
+	extern blocks_getTerrainHeight
 	
 	
 	global chomk_printChomkCount			;void chomk_printChomkCount()
@@ -84,6 +85,8 @@ chomk_generateChomk:
 	sub esp, 16		;vector<int> colours
 	sub esp, 12		;chomk base position
 	sub esp, 12		;current position for the mesh generation
+	sub esp, 4		;int chunk x pos
+	sub esp, 4		;int chunk z pos
 	
 	
 	;alloc chomk
@@ -180,6 +183,14 @@ _generateChomk_chomk_blocks_malloc_no_error:
 	call vector_init
 	add esp, 8
 	
+	;calculate chunk integer positions
+	mov eax, dword[ebp+24]
+	shl eax, 4
+	mov dword[ebp-80], eax
+	
+	mov eax, dword[ebp+28]
+	shl eax, 4
+	mov dword[ebp-84], eax
 	
 	
 	;generate terrain
@@ -191,23 +202,33 @@ _generateChomk_terrain_generation_y_loop_start:
 	_generateChomk_terrain_generation_x_loop_start:
 		xor edx, edx
 		_generateChomk_terrain_generation_z_loop_start:
+			push eax
+			push ecx
 			push edx
 			
-			add edx, ecx
-			shr edx, 1
+			add ecx, dword[ebp-80]
+			add edx, dword[ebp-84]
+			push edx
+			push ecx
+			call blocks_getTerrainHeight
+			add esp, 8
+			
+			mov ecx, dword[esp+8]
 		
-			cmp eax, edx
-			jle _generateChomk_terrain_dirt
+			cmp ecx, eax
+			jle _generateChomk_terrain_grass
 			jmp _generateChomk_terrain_air
 			_generateChomk_terrain_air:
 				mov byte[ebx], BLOCK_AIR
 				jmp _generateChomk_terrain_block_done
-			_generateChomk_terrain_dirt:
-				mov byte[ebx], BLOCK_DIRT
+			_generateChomk_terrain_grass:
+				mov byte[ebx], BLOCK_GRASS
 				jmp _generateChomk_terrain_block_done
 			_generateChomk_terrain_block_done:
 			
 			pop edx
+			pop ecx
+			pop eax
 			inc ebx
 			inc edx
 			cmp edx, CHOMK_WIDTH_PLUS_TWO
