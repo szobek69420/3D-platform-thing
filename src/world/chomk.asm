@@ -183,6 +183,13 @@ _generateChomk_chomk_blocks_malloc_no_error:
 	call vector_init
 	add esp, 8
 	
+	;set chunk info
+	mov eax, dword[ebp-4]
+	mov ecx, dword[ebp+24]
+	mov dword[eax], ecx
+	mov ecx, dword[ebp+28]
+	mov dword[eax+4], ecx
+	
 	;calculate chunk integer positions
 	mov eax, dword[ebp+24]
 	shl eax, 4

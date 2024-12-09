@@ -24,6 +24,7 @@ section .bss
 	kuba3 resb 84
 	pplayer resb 4	
 	pv_matrix resb 64
+	pchomk_manager resb 4
 	
 	lastFrame resb 4		;clock_t
 	frameHelper resb 4		;clock_t
@@ -83,6 +84,10 @@ section .text
 	extern chomk_generateChomk
 	extern chomk_renderChomk
 	
+	extern chomkManager_create
+	extern chomkManager_generate
+	extern chomkManager_render
+	
 	global _start
 	
 _start:
@@ -111,6 +116,12 @@ _start:
 	push camera
 	call player_init
 	mov dword[pplayer], eax
+	add esp, 4
+	
+	;create chomk manager
+	push 3
+	call chomkManager_create
+	mov dword[pchomk_manager], eax
 	add esp, 4
 	
 	;create kubak
@@ -229,6 +240,22 @@ _skip_fps_print:
 	call physics_step
 	add esp, 4
 	
+	;generate chomks
+	sub esp, 8
+	mov eax, dword[pplayer]
+	mov eax, dword[eax]
+	mov ecx, dword[eax]
+	mov dword[esp], ecx
+	mov ecx, dword[eax+8]
+	mov dword[esp+4], ecx
+	fld dword[esp]
+	fistp dword[esp]
+	fld dword[esp+4]
+	fistp dword[esp+4]
+	push dword[pchomk_manager]
+	call chomkManager_generate
+	add esp, 12
+	
 	;clear buffer
 	push 0xFF000000
 	push window
@@ -252,12 +279,13 @@ _skip_fps_print:
 	call renderable_render
 	add esp, 12
 	
-	;render chomk
+	;render chomks
 	push pv_matrix
 	push window
-	push dword[temp_chomk]
-	call chomk_renderChomk
+	push dword[pchomk_manager]
+	call chomkManager_render
 	add esp, 12
+	
 	
 	;draw buffer
 	push window

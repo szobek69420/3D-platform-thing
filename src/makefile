@@ -22,6 +22,7 @@ amogus:
 	nasm -felf32 -o ./build/player.o ./player/player.asm
 	nasm -felf32 -o ./build/blocks.o ./world/blocks.asm
 	nasm -felf32 -o ./build/chomk.o ./world/chomk.asm
+	nasm -felf32 -o ./build/chomk_manager.o ./world/chomk_manager.asm
 	nasm -felf32 -o ./build/ulala.o ./ulala.asm
 	gcc -m32 -o ./build/program \
 	./build/vector.o \
@@ -40,5 +41,6 @@ amogus:
 	./build/player.o \
 	./build/blocks.o \
 	./build/chomk.o \
+	./build/chomk_manager.o \
 	./build/ulala.o -lX11 -nostartfiles
 	find . -name "*.o" -delete
