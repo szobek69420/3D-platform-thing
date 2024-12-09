@@ -24,6 +24,7 @@ section .text
 	extern vector_init
 	extern vector_push_back
 	extern vector_remove
+	extern vector_remove_at
 	extern vector_destroy
 
 	extern chomk_renderChomk
@@ -208,12 +209,25 @@ chomkManager_removeChomk:
 	push ebp
 	mov ebp, esp
 	
+	push print_creation_error_message
+	;call printf
+	add esp, 4
+	push dword[ebp+8]
+	;call chomkManager_printLoadedChomks
+	add esp, 4
+	
 	mov eax, dword[ebp+12]
 	push dword[eax+4]
 	push dword[eax]
 	push print_two_ints
 	mov eax, dword[ebp+8]
 	push dword[eax]
+	
+	;remove from loaded chomks
+	push dword[ebp+12]
+	push dword[ebp+8]
+	call vector_remove
+	add esp, 8
 	
 	;TODO: remove chomk colliders from physics
 	
@@ -222,18 +236,15 @@ chomkManager_removeChomk:
 	call chomk_destroyChomk
 	add esp, 4
 	
-	;remove from loaded chomks
-	push dword[ebp+12]
-	push dword[ebp+8]
-	call vector_remove
-	add esp, 8
-	
 	mov eax, dword[ebp+8]
 	push dword[eax]
 	push dword[ebp-4]
 	push dword[ebp-8]
 	push print_chomk_removed_message
 	call printf
+	
+	push dword[ebp+8]
+	;call chomkManager_printLoadedChomks
 	
 	mov esp, ebp
 	pop ebp
@@ -301,134 +312,42 @@ chomkManager_generate:
 	
 	;search for not loaded chomks
 	mov ebx, dword[ebp+20]	;cm in ebx
-	xor esi, esi		;search ring radius
-	_generate_load_radius_loop_start:
-		;neg z
-		xor eax, eax
-		sub eax, esi
+	mov esi, dword[ebx+48]
+	xor eax, eax
+	sub eax, esi
+	xor ecx, ecx
+	sub ecx, esi
+	_generate_load_outer_loop_start:
 		xor ecx, ecx
 		sub ecx, esi
-		_generate_load_neg_z_loop_start:
+		_generate_load_inner_loop_start:
 			push eax		;save eax
 			push ecx		;save ecx
-			mov edx, dword[ebp-8]
-			add edx, ecx
-			push edx
-			mov edx, dword[ebp-4]
-			add edx, eax
-			push edx
+			
+			add eax, dword[ebp-4]
+			add ecx, dword[ebp-8]
+			
+			push ecx
+			push eax
 			push ebx
 			call chomkManager_isChomkLoaded
 			cmp eax, 0
-			jne _generate_load_neg_z_loaded
+			jne _generate_chomk_not_loaded
 				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
-				add esp, 20
-				jmp _generate_load_radius_loop_done
-			_generate_load_neg_z_loaded:
+				;call chomkManager_printLoadedChomks
+			_generate_chomk_not_loaded:
 			add esp, 12
-			pop ecx			;restore ecx
-			pop eax			;restore eax
-			
-			inc eax
-			cmp eax, esi
-			jle _generate_load_neg_z_loop_start
-			
-		;neg x
-		xor eax, eax
-		sub eax, esi
-		xor ecx, ecx
-		sub ecx, esi
-		_generate_load_neg_x_loop_start:
-			push eax		;save eax
-			push ecx		;save ecx
-			mov edx, dword[ebp-8]
-			add edx, ecx
-			push edx
-			mov edx, dword[ebp-4]
-			add edx, eax
-			push edx
-			push ebx
-			call chomkManager_isChomkLoaded
-			cmp eax, 0
-			jne _generate_load_neg_x_loaded
-				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
-				add esp, 20
-				jmp _generate_load_radius_loop_done
-			_generate_load_neg_x_loaded:
-			add esp, 12
-			pop ecx			;restore ecx
-			pop eax			;restore eax
+			pop ecx
+			pop eax
 			
 			inc ecx
 			cmp ecx, esi
-			jle _generate_load_neg_x_loop_start
-			
-		;pos z
-		xor eax, eax
-		sub eax, esi
-		mov ecx, esi
-		_generate_load_pos_z_loop_start:
-			push eax		;save eax
-			push ecx		;save ecx
-			mov edx, dword[ebp-8]
-			add edx, ecx
-			push edx
-			mov edx, dword[ebp-4]
-			add edx, eax
-			push edx
-			push ebx
-			call chomkManager_isChomkLoaded
-			cmp eax, 0
-			jne _generate_load_pos_z_loaded
-				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
-				add esp, 20
-				jmp _generate_load_radius_loop_done
-			_generate_load_pos_z_loaded:
-			add esp, 12
-			pop ecx			;restore ecx
-			pop eax			;restore eax
-			
-			inc eax
-			cmp eax, esi
-			jle _generate_load_pos_z_loop_start
-			
-		;pos x
-		mov eax, esi
-		xor ecx, ecx
-		sub ecx, esi
-		_generate_load_pos_x_loop_start:
-			push eax		;save eax
-			push ecx		;save ecx
-			mov edx, dword[ebp-8]
-			add edx, ecx
-			push edx
-			mov edx, dword[ebp-4]
-			add edx, eax
-			push edx
-			push ebx
-			call chomkManager_isChomkLoaded
-			cmp eax, 0
-			jne _generate_load_pos_x_loaded
-				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
-				add esp, 20
-				jmp _generate_load_radius_loop_done
-			_generate_load_pos_x_loaded:
-			add esp, 12
-			pop ecx			;restore ecx
-			pop eax			;restore eax
-			
-			inc ecx
-			cmp ecx, esi
-			jle _generate_load_pos_x_loop_start
-			
-		inc esi
-		cmp esi, dword[ebx+48]
-		jle _generate_load_radius_loop_start
-	_generate_load_radius_loop_done:
+			jle _generate_load_inner_loop_start
+		
+		inc eax
+		cmp eax, esi
+		jle _generate_load_outer_loop_start
+		
 		
 		
 	;search for unloadable chomks

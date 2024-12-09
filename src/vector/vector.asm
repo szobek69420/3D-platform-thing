@@ -329,20 +329,27 @@ _remove_at_index_valid:
 	imul ecx, dword[eax+8]
 	add ecx, dword[eax+12]
 	
-	;calculate copy size
-	mov edx, dword[eax]
-	sub edx, dword[ebp+12]
-	dec edx
-	imul edx, dword[eax+8]
-	
 	;relocate things
-	push edx		;push copy size
-	sub esp, 4		;alloc space for src*
-	push ecx			;push dst*
-	add ecx, dword[eax+8]
-	mov dword[esp+4], ecx		;push the real src*
-	call memcpy
-	add esp, 12
+	mov edx, dword[eax]
+	dec edx
+	sub edx, dword[ebp+12]
+	imul edx, dword[eax+8]		;the number of bytes to copy
+	push dword[eax+8]		;save the element size
+	cmp edx, 0
+	je _remove_at_relocate_loop_end
+	_remove_at_relocate_loop_start:
+		push edx
+		mov edx, dword[esp+4]
+		mov al, byte[ecx+edx]
+		mov byte[ecx], al
+		pop edx
+		
+		inc ecx
+		dec edx
+		cmp edx, 0
+		jg _remove_at_relocate_loop_start
+	_remove_at_relocate_loop_end:
+	add esp, 4
 	
 	;decrement size
 	mov eax, dword[ebp-4]
@@ -407,7 +414,7 @@ _remove_compare_loop_start:
 	cmp eax, 0
 	jne _remove_compare_loop_condition_end
 	mov eax, dword[ebp-4]
-	mov ecx, dword[eax]		;size in ecx
+	mov ecx, dword[eax]			;size in ecx
 	sub ecx, esi				;index to delete in ecx
 	push ecx
 	push eax
