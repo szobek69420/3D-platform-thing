@@ -1,5 +1,6 @@
 # Hi there
 This will be a small software-rendered minecraft clone written x86 asm.
-It already looks breathtaking:
-![image](https://github.com/user-attachments/assets/1a2fbb26-4412-4ebe-a4ba-538a30af0e64)
+It's already a sigma mogger fr:
+![image](https://github.com/user-attachments/assets/157683d3-0767-4363-81e8-0798cfef3064)
+
 
