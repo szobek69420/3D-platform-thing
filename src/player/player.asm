@@ -14,7 +14,7 @@ section .rodata
 	WORLD_UP dd 0.0, 1.0, 0.0
 	WORLD_DOWN dd 0.0, -1.0, 0.0
 	
-	DEFAULT_POSITION dd 0.0, 0.0, 10.0
+	DEFAULT_POSITION dd 0.0, 35.0, 10.0
 	
 	COLLIDER_LOWER_BOUND dd -0.15, -1.5, -0.15
 	COLLIDER_UPPER_BOUND dd 0.15, 1.5, 0.15
@@ -58,8 +58,11 @@ player_init:
 	push ebp
 	mov ebp, esp
 	
+	sub esp, 4		;player
+	
 	push 8
 	call malloc
+	mov dword[ebp-4], eax
 	add esp, 4
 	cmp eax, 0
 	jne _init_no_error
@@ -73,27 +76,32 @@ player_init:
 	
 _init_no_error:
 	;save camera
+	mov eax, dword[ebp-4]
 	mov ecx, dword[ebp+8]
 	mov dword[eax], ecx		;save cum
 	
-	push eax
-	push 12
-	push DEFAULT_POSITION
-	push ecx
-	call memcpy
-	add esp, 12
-	pop eax
-	
 	;make collider
-	push eax			;save eax
 	push COLLIDER_UPPER_BOUND
 	push COLLIDER_LOWER_BOUND
 	call collider_createCollider
 	add esp, 8
 	mov ecx, eax
-	pop eax 			;restore eax
 	
+	mov eax, dword[ebp-4]
 	mov dword[eax+4], ecx		;save collider
+	
+	;set position
+	mov eax, dword[ebp-4]
+	mov eax, dword[eax+4]
+	lea eax, [eax+24]
+	push 12
+	push DEFAULT_POSITION
+	push eax
+	call memcpy
+	add esp, 12
+	
+	
+	mov eax, dword[ebp-4]
 	
 	mov esp, ebp
 	pop ebp
