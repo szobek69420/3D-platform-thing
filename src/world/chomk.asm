@@ -48,7 +48,10 @@ section .text
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
 	
+	extern BLOCK_COLOUR_INDEX
+	
 	extern BLOCK_INDICES
+	extern BLOCK_VERTICES_INDEX
 	extern BLOCK_VERTICES_POS_Y
 	
 	
@@ -188,6 +191,11 @@ _generateChomk_terrain_generation_y_loop_start:
 	_generateChomk_terrain_generation_x_loop_start:
 		xor edx, edx
 		_generateChomk_terrain_generation_z_loop_start:
+			push edx
+			
+			add edx, ecx
+			shr edx, 1
+		
 			cmp eax, edx
 			jle _generateChomk_terrain_dirt
 			jmp _generateChomk_terrain_air
@@ -199,6 +207,7 @@ _generateChomk_terrain_generation_y_loop_start:
 				jmp _generateChomk_terrain_block_done
 			_generateChomk_terrain_block_done:
 			
+			pop edx
 			inc ebx
 			inc edx
 			cmp edx, CHOMK_WIDTH_PLUS_TWO
@@ -268,6 +277,94 @@ _generateChomk_mesh_y_loop_start:
 			mov dl, byte[ebx]
 			cmp edx, BLOCK_AIR
 			je _generateChomk_air
+			
+			;neg z
+			xor edx, edx
+			mov dl, byte[ebx-1]
+			cmp edx, BLOCK_AIR
+			jne _generateChomk_neg_z_not_visible
+			
+			lea eax, [ebp-52]
+			push eax
+			lea eax, [ebp-36]
+			push eax
+			lea eax, [ebp-20]
+			push eax
+			lea eax, [ebp-76]
+			push eax
+			push 0
+			xor eax, eax
+			mov al, byte[ebx]
+			push eax
+			call _generateChomk_helper
+			add esp, 24
+			_generateChomk_neg_z_not_visible:
+			
+			;neg x
+			xor edx, edx
+			mov dl, byte[ebx-CHOMK_WIDTH_PLUS_TWO]
+			cmp edx, BLOCK_AIR
+			jne _generateChomk_neg_x_not_visible
+			
+			lea eax, [ebp-52]
+			push eax
+			lea eax, [ebp-36]
+			push eax
+			lea eax, [ebp-20]
+			push eax
+			lea eax, [ebp-76]
+			push eax
+			push 1
+			xor eax, eax
+			mov al, byte[ebx]
+			push eax
+			call _generateChomk_helper
+			add esp, 24
+			_generateChomk_neg_x_not_visible:
+			
+			;pos z
+			xor edx, edx
+			mov dl, byte[ebx+1]
+			cmp edx, BLOCK_AIR
+			jne _generateChomk_pos_z_not_visible
+			
+			lea eax, [ebp-52]
+			push eax
+			lea eax, [ebp-36]
+			push eax
+			lea eax, [ebp-20]
+			push eax
+			lea eax, [ebp-76]
+			push eax
+			push 2
+			xor eax, eax
+			mov al, byte[ebx]
+			push eax
+			call _generateChomk_helper
+			add esp, 24
+			_generateChomk_pos_z_not_visible:
+			
+			;pos x
+			xor edx, edx
+			mov dl, byte[ebx+CHOMK_WIDTH_PLUS_TWO]
+			cmp edx, BLOCK_AIR
+			jne _generateChomk_pos_x_not_visible
+			
+			lea eax, [ebp-52]
+			push eax
+			lea eax, [ebp-36]
+			push eax
+			lea eax, [ebp-20]
+			push eax
+			lea eax, [ebp-76]
+			push eax
+			push 3
+			xor eax, eax
+			mov al, byte[ebx]
+			push eax
+			call _generateChomk_helper
+			add esp, 24
+			_generateChomk_pos_x_not_visible:
 		
 			;pos y
 			xor edx, edx
@@ -275,124 +372,43 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_pos_y_not_visible
 			
-			;add vertices
-			sub esp, 12		;alloc space for temp vector
-			
-			mov eax, BLOCK_VERTICES_POS_Y
-			lea ecx, [ebp-76]
-			mov edx, esp
-			push eax
-			push ecx
-			push edx
-			call vec3_add
-			add esp, 12
-			lea eax, [ebp-20]
-			push eax
-			call vector_push_back
-			add esp, 4
-			
-			mov eax, BLOCK_VERTICES_POS_Y
-			add eax, 12
-			lea ecx, [ebp-76]
-			mov edx, esp
-			push eax
-			push ecx
-			push edx
-			call vec3_add
-			add esp, 12
-			lea eax, [ebp-20]
-			push eax
-			call vector_push_back
-			add esp, 4
-			
-			mov eax, BLOCK_VERTICES_POS_Y
-			add eax, 24
-			lea ecx, [ebp-76]
-			mov edx, esp
-			push eax
-			push ecx
-			push edx
-			call vec3_add
-			add esp, 12
-			lea eax, [ebp-20]
-			push eax
-			call vector_push_back
-			add esp, 4
-			
-			mov eax, BLOCK_VERTICES_POS_Y
-			add eax, 36
-			lea ecx, [ebp-76]
-			mov edx, esp
-			push eax
-			push ecx
-			push edx
-			call vec3_add
-			add esp, 12
-			lea eax, [ebp-20]
-			push eax
-			call vector_push_back
-			add esp, 4
-			
-			add esp, 12
-			
-			
-			;add indices
-			mov eax, dword[BLOCK_INDICES]
-			add eax, esi
+			lea eax, [ebp-52]
 			push eax
 			lea eax, [ebp-36]
 			push eax
-			call vector_push_back
+			lea eax, [ebp-20]
+			push eax
+			lea eax, [ebp-76]
+			push eax
+			push 4
+			xor eax, eax
+			mov al, byte[ebx]
+			push eax
+			call _generateChomk_helper
+			add esp, 24
+			_generateChomk_pos_y_not_visible:
 			
-			mov eax, BLOCK_INDICES
-			add eax, 4
-			mov eax, dword[eax]
-			add eax, esi
-			mov dword[esp+4], eax
-			call vector_push_back
+			;neg y
+			xor edx, edx
+			mov dl, byte[ebx-CHOMK_BLOCKS_PER_LAYER]
+			cmp edx, BLOCK_AIR
+			jne _generateChomk_neg_y_not_visible
 			
-			mov eax, BLOCK_INDICES
-			add eax, 8
-			mov eax, dword[eax]
-			add eax, esi
-			mov dword[esp+4], eax
-			call vector_push_back
-			
-			mov eax, BLOCK_INDICES
-			add eax, 12
-			mov eax, dword[eax]
-			add eax, esi
-			mov dword[esp+4], eax
-			call vector_push_back
-			
-			mov eax, BLOCK_INDICES
-			add eax, 16
-			mov eax, dword[eax]
-			add eax, esi
-			mov dword[esp+4], eax
-			call vector_push_back
-			
-			mov eax, BLOCK_INDICES
-			add eax, 20
-			mov eax, dword[eax]
-			add eax, esi
-			mov dword[esp+4], eax
-			call vector_push_back
-			add esp, 8
-			
-			
-			;add colour
-			push 0xFFFF0000
 			lea eax, [ebp-52]
 			push eax
-			call vector_push_back
-			call vector_push_back
-			add esp, 8
-			
-			
-			add esi, 4
-			
-			_generateChomk_pos_y_not_visible:
+			lea eax, [ebp-36]
+			push eax
+			lea eax, [ebp-20]
+			push eax
+			lea eax, [ebp-76]
+			push eax
+			push 5
+			xor eax, eax
+			mov al, byte[ebx]
+			push eax
+			call _generateChomk_helper
+			add esp, 24
+			_generateChomk_neg_y_not_visible:
 			
 			
 			_generateChomk_air:
@@ -472,6 +488,136 @@ _generateChomk_done:
 	pop edi
 	pop esi
 	pop ebx
+	pop ebp
+	ret
+	
+
+;adds a side of the block
+_generateChomk_helper:		;void _generatechomk_helper(int block, int side, vec3* blockPos, vector<vec3>* vertices, vector<int>* indices, vector<int>* colours)
+	push ebp
+	mov ebp, esp	
+	
+	sub esp, 4		;vertex data location
+	sub esp, 4		;colour
+	sub esp, 4		;current vertex count
+	
+	;retrieving vertex data
+	mov eax, dword[ebp+12]
+	mov ecx, dword[4*eax+BLOCK_VERTICES_INDEX]
+	mov dword[ebp-4], ecx
+	
+	;getting colour
+	mov ecx, dword[ebp+8]
+	mov edx, dword[4*ecx+BLOCK_COLOUR_INDEX]
+	mov edx, dword[edx+4*eax]
+	mov dword[ebp-8], edx
+	
+	;getting vertex count
+	mov eax, dword[ebp+20]
+	mov eax, dword[eax]
+	mov dword[ebp-12], eax
+	
+	
+	;add vertices
+	sub esp, 12		;alloc space for temp vector
+			
+	mov edx, esp
+	push dword[ebp-4]	;vertex data location
+	push dword[ebp+16]	;block position
+	push edx
+	call vec3_add
+	add esp, 12
+	push dword[ebp+20]
+	call vector_push_back
+	add esp, 4
+	
+	mov eax, dword[ebp-4]	;vertex data location in eax
+	add eax, 12
+	mov edx, esp
+	push eax
+	push dword[ebp+16]	;block position
+	push edx
+	call vec3_add
+	add esp, 12
+	push dword[ebp+20]
+	call vector_push_back
+	add esp, 4
+	
+	mov eax, dword[ebp-4]	;vertex data location in eax
+	add eax, 24
+	mov edx, esp
+	push eax
+	push dword[ebp+16]	;block position
+	push edx
+	call vec3_add
+	add esp, 12
+	push dword[ebp+20]
+	call vector_push_back
+	add esp, 4
+	
+	mov eax, dword[ebp-4]	;vertex data location in eax
+	add eax, 36
+	mov edx, esp
+	push eax
+	push dword[ebp+16]	;block position
+	push edx
+	call vec3_add
+	add esp, 12
+	push dword[ebp+20]
+	call vector_push_back
+	add esp, 4
+	
+	add esp, 12
+			
+			
+	;add indices
+	mov eax, dword[BLOCK_INDICES]
+	add eax, dword[ebp-12]
+	push eax
+	push dword[ebp+24]
+	call vector_push_back
+	
+	mov eax, BLOCK_INDICES
+	mov eax, dword[eax+4]
+	add eax, dword[ebp-12]
+	mov dword[esp+4], eax
+	call vector_push_back
+			
+	mov eax, BLOCK_INDICES
+	mov eax, dword[eax+8]
+	add eax, dword[ebp-12]
+	mov dword[esp+4], eax
+	call vector_push_back
+			
+	mov eax, BLOCK_INDICES
+	mov eax, dword[eax+12]
+	add eax, dword[ebp-12]
+	mov dword[esp+4], eax
+	call vector_push_back
+			
+	mov eax, BLOCK_INDICES
+	mov eax, dword[eax+16]
+	add eax, dword[ebp-12]
+	mov dword[esp+4], eax
+	call vector_push_back
+			
+	mov eax, BLOCK_INDICES
+	mov eax, dword[eax+20]
+	add eax, dword[ebp-12]
+	mov dword[esp+4], eax
+	call vector_push_back
+	add esp, 8
+	
+			
+	;add colour
+	push dword[ebp-8]
+	push dword[ebp+28]
+	call vector_push_back
+	call vector_push_back
+	add esp, 8
+
+	
+	mov esp, ebp
 	pop ebp
 	ret
 	

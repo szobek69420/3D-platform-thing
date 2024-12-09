@@ -35,6 +35,7 @@ section .rodata
 	global BLOCK_STONE_COLOURS
 	
 	;block vertices
+	BLOCK_VERTICES_INDEX dd BLOCK_VERTICES_NEG_Z, BLOCK_VERTICES_NEG_X, BLOCK_VERTICES_POS_Z, BLOCK_VERTICES_POS_X, BLOCK_VERTICES_POS_Y, BLOCK_VERTICES_NEG_Y
 	BLOCK_VERTICES_NEG_Z dd -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, 0.5, -0.5,  -0.5, 0.5, -0.5
 	BLOCK_VERTICES_NEG_X dd -0.5, -0.5, 0.5,  -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,  -0.5, 0.5, 0.5
 	BLOCK_VERTICES_POS_Z dd 0.5, -0.5, 0.5,  -0.5, -0.5, 0.5,  -0.5, 0.5, 0.5,  0.5, 0.5, 0.5
@@ -42,6 +43,7 @@ section .rodata
 	BLOCK_VERTICES_POS_Y dd 0.5, 0.5, 0.5,  -0.5, 0.5, 0.5,  -0.5, 0.5, -0.5,  0.5, 0.5, -0.5
 	BLOCK_VERTICES_NEG_Y dd 0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,  -0.5, -0.5, 0.5,  0.5, -0.5, 0.5
 	
+	global BLOCK_VERTICES_INDEX
 	global BLOCK_VERTICES_NEG_Z
 	global BLOCK_VERTICES_NEG_X
 	global BLOCK_VERTICES_POS_Z
