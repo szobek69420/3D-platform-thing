@@ -257,7 +257,7 @@ _skip_fps_print:
 	add esp, 12
 	
 	;clear buffer
-	push 0xFF000000
+	push 0xFF00BFFF
 	push window
 	call window_clearDrawBuffer
 	add esp, 8

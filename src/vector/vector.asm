@@ -18,6 +18,7 @@ section .text
 	extern printf
 	extern memcpy
 	extern memcmp
+	extern memmove
 
 	global vector_init			;vector vector_init(int element_size)
 	global vector_destroy		;void vector_destroy(vector*)
@@ -329,27 +330,20 @@ _remove_at_index_valid:
 	imul ecx, dword[eax+8]
 	add ecx, dword[eax+12]
 	
-	;relocate things
+	;calculate copy size
 	mov edx, dword[eax]
-	dec edx
 	sub edx, dword[ebp+12]
-	imul edx, dword[eax+8]		;the number of bytes to copy
-	push dword[eax+8]		;save the element size
-	cmp edx, 0
-	je _remove_at_relocate_loop_end
-	_remove_at_relocate_loop_start:
-		push edx
-		mov edx, dword[esp+4]
-		mov al, byte[ecx+edx]
-		mov byte[ecx], al
-		pop edx
-		
-		inc ecx
-		dec edx
-		cmp edx, 0
-		jg _remove_at_relocate_loop_start
-	_remove_at_relocate_loop_end:
-	add esp, 4
+	dec edx
+	imul edx, dword[eax+8]
+	
+	;relocate things
+	push edx		;push copy size
+	sub esp, 4		;alloc space for src*
+	push ecx			;push dst*
+	add ecx, dword[eax+8]
+	mov dword[esp+4], ecx		;push the real src*
+	call memmove
+	add esp, 12
 	
 	;decrement size
 	mov eax, dword[ebp-4]
