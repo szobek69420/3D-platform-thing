@@ -1,6 +1,4 @@
 # Hi there
 This will be a small software-rendered minecraft clone written x86 asm.
 It's already a sigma mogger fr:
-![image](https://github.com/user-attachments/assets/157683d3-0767-4363-81e8-0798cfef3064)
-
-
+![image](https://github.com/user-attachments/assets/0ec8f155-ef26-484c-9fa9-2b253ac7b8d5)
