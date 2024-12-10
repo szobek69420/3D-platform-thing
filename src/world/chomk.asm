@@ -43,7 +43,7 @@ section .text
 	extern renderable_create
 	extern renderable_destroy
 	extern renderable_print
-	extern renderable_render
+	extern renderable_renderWithFog
 	
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
@@ -61,7 +61,7 @@ section .text
 	global chomk_generateChomk			;chomk* chomk_generateChomk(int seed, int chomkX, int chomkZ)
 	global chomk_destroyChomk			;void chomk_destroyChomk(chomk* chomk)
 	
-	global chomk_renderChomk			;void chomk_renderChomk(chomk* chomk, ScreenInfo* display, mat4* pv)
+	global chomk_renderChomk			;void chomk_renderChomk(chomk* chomk, ScreenInfo* display, mat4* pv, camera* cum)
 	
 chomk_printChomkCount:
 	push dword[chomkCount]
@@ -682,10 +682,11 @@ chomk_renderChomk:
 	
 	mov eax, dword[ebp+8]		;chomk in eax
 	
+	push dword[ebp+20]
 	push dword[ebp+16]
 	push dword[ebp+12]
 	push dword[eax+12]
-	call renderable_render
+	call renderable_renderWithFog
 	
 	mov esp, ebp
 	pop ebp

@@ -280,6 +280,8 @@ _skip_fps_print:
 	add esp, 12
 	
 	;render chomks
+	mov eax, dword[pplayer]
+	push dword[eax]
 	push pv_matrix
 	push window
 	push dword[pchomk_manager]

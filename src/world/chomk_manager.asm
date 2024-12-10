@@ -34,7 +34,7 @@ section .text
 	global chomkManager_create		;chomkManager* chomkManager_create(int renderDistance, int seed)
 	global chomkManager_destroy		;void chomkManager_destroy(chomkManager* cm)
 	
-	global chomkManager_render		;void chomkManager_render(chomkManager* cm, ScreenInfo* window, mat4* pv)
+	global chomkManager_render		;void chomkManager_render(chomkManager* cm, ScreenInfo* window, mat4* pv, camera* cum)
 	
 	global chomkManager_addChomk		;void chomkManager_addChomk(chomkManager* cm, int chunkX, int chunkZ)
 	global chomkManager_removeChomk 	;void chomkManager_removeChomk(chomkManager* cm, chomk* cm)
@@ -146,11 +146,12 @@ chomkManager_render:
 	cmp edi, 0
 	je _render_done
 _render_loop_start:
+	push dword[ebp+28]
 	push dword[ebp+24]
 	push dword[ebp+20]
 	push dword[esi+4*edi-4]
 	call chomk_renderChomk
-	add esp, 12
+	add esp, 16
 	
 	dec edi
 	cmp edi, 0
@@ -464,8 +465,16 @@ chomkManager_generate:
 	ret
 	
 	
-	
 chomkManager_printLoadedChomks:
+	mov eax, dword[esp+4]
+	push dword[eax]
+	push print_loaded_chomk_count
+	call printf
+	add esp, 8
+	ret
+	
+	
+chomkManager_printLoadedChomksDetailed:
 	push ebp
 	push esi
 	push edi
