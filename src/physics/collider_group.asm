@@ -12,15 +12,21 @@ section .rodata
 	print_collider_group_info_2 db "Lower bound: ",0
 	print_collider_group_info_3 db "Upper bound: ",0
 	print_collider_group_info_4 db "Collider count: %d",10,0
+	print_float_format db "%.3f",10,0
+	print_cucc db "sugus",10,0
 
 section .data
 	colliderGroupCount dd 0
+	
+section .bss
+	collisionReferenceCollider resb 4		;the dynamic collider that is colliding with the collider group currently
 
 section .text
 	extern printf
 	extern malloc
 	extern free
 	extern memcpy
+	extern qsort
 	
 	extern vector_init
 	extern vector_destroy
@@ -32,6 +38,7 @@ section .text
 	
 	extern collider_resolveCollision
 	extern collider_destroyCollider
+	extern collider_calculateDistance
 	
 	global colliderGroup_printColliderGroupCount
 	
@@ -195,10 +202,14 @@ colliderGroup_collide:
 	cmp eax, 0
 	je _collide_done
 	
+	;set the reference collider
+	mov eax, dword[ebp+24]
+	mov dword[collisionReferenceCollider], eax
+	
 	
 	;make a copy of the static colliders and sort them according to distace from the dynamic collider
 	mov eax, dword[ebx]
-	imul eax, 4
+	shl eax, 2
 	push eax
 	call malloc
 	mov dword[ebp-4], eax
@@ -206,6 +217,13 @@ colliderGroup_collide:
 	push eax
 	call memcpy
 	add esp, 12
+	
+	push collider_distanceCmp
+	push 4
+	push dword[ebx]
+	push dword[ebp-4]
+	call qsort
+	add esp, 16
 	
 	
 	;resolve collisions
@@ -219,6 +237,8 @@ _collide_resolve_collision_start:
 	mov eax, dword[edi]
 	mov dword[esp+4], eax
 	call collider_resolveCollision
+	cmp eax, 0
+	je _collide_resolve_collision_end
 	add edi, 4
 	dec esi
 	cmp esi, 0
@@ -485,5 +505,35 @@ _recalculateBounds_done:
 	pop edi
 	pop esi
 	pop ebx
+	pop ebp
+	ret
+	
+	
+collider_distanceCmp:		;int collider_distanceCmp(collider** c1, collider** c2)
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;temp
+	
+	mov eax, dword[ebp+8]
+	push dword[collisionReferenceCollider]
+	push dword[eax]
+	call collider_calculateDistance
+	mov eax, dword[ebp+12]
+	mov eax, dword[eax]
+	mov dword[esp], eax
+	call collider_calculateDistance
+	add esp, 8
+	
+	fsubp
+	fstp dword[ebp-4]
+	
+	mov eax, dword[ebp-4]
+	and eax, 0x80000000
+	cmp eax, 0
+	jne _distanceCmp_a_smaller
+		or eax, 0x1000101
+	_distanceCmp_a_smaller:
+	mov esp, ebp
 	pop ebp
 	ret

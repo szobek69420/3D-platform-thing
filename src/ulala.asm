@@ -3,6 +3,7 @@ section .rodata
 	ONE dd 1.0
 	
 	ONE_PER_CLOCKS_PER_SECOND dd 0.000001
+	TENTH dd 0.1
 	
 	print_float_format db "%.3f",10,0
 	print_frame_count db "FPS: %d",10,0
@@ -236,8 +237,18 @@ _skip_fps_print:
 	add esp, 8
 	
 	;physics update
-	push dword[deltaTime]
-	call physics_step
+	push ebx		;save ebx
+	movss xmm0, dword[deltaTime]
+	mulss xmm0, dword[TENTH]
+	sub esp, 4
+	movss dword[esp], xmm0
+	mov ebx, 10
+	_physics_update_loop_start:	
+		call physics_step
+		dec ebx
+		cmp ebx, 0
+		jg _physics_update_loop_start
+	pop ebx			;restore ebx
 	add esp, 4
 	
 	;generate chomks
