@@ -401,7 +401,7 @@ renderable_render_internal:		;void renderable_render_internal(renderable* render
 			fstp dword[ebx]
 			movss xmm0, dword[ebx]
 			mulss xmm0, xmm5
-			mulss xmm0, xmm0	;weaken the fog
+			;mulss xmm0, xmm0	;weaken the fog
 			movss dword[ebx], xmm0
 			add esp, 12
 			

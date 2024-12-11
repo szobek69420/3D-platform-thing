@@ -119,7 +119,7 @@ _start:
 	add esp, 4
 	
 	;create chomk manager
-	push 3
+	push 2
 	call chomkManager_create
 	mov dword[pchomk_manager], eax
 	add esp, 4
@@ -286,7 +286,7 @@ _skip_fps_print:
 	push window
 	push dword[pchomk_manager]
 	call chomkManager_render
-	add esp, 12
+	add esp, 16
 	
 	
 	;draw buffer

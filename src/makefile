@@ -7,6 +7,7 @@ install:
 amogus:
 	mkdir -p build
 	nasm -felf32 -o ./build/vector.o ./vector/vector.asm
+	nasm -felf32 -o ./build/math.o ./math/math.asm
 	nasm -felf32 -o ./build/vec3.o ./glm3/vec3.asm
 	nasm -felf32 -o ./build/vec4.o ./glm3/vec4.asm
 	nasm -felf32 -o ./build/mat3.o ./glm3/mat3.asm
@@ -26,6 +27,7 @@ amogus:
 	nasm -felf32 -o ./build/ulala.o ./ulala.asm
 	gcc -m32 -o ./build/program \
 	./build/vector.o \
+	./build/math.o \
 	./build/vec3.o \
 	./build/vec4.o \
 	./build/mat3.o \

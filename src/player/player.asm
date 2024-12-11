@@ -22,6 +22,10 @@ section .rodata
 	ZERO dd 0.0
 	ONE dd 1.0
 	
+	NORMAL_FOV dd 60.0
+	ZOOMED_FOV dd 10.0
+	ZOOM_SPEED dd 0.1
+	
 
 section .text
 	extern printf
@@ -35,6 +39,8 @@ section .text
 	extern vec3_scale
 	extern vec3_add
 	extern vec3_normalize
+	
+	extern math_basedLerp
 
 	extern collider_createCollider
 	
@@ -42,6 +48,7 @@ section .text
 	extern KEY_A
 	extern KEY_S
 	extern KEY_D
+	extern KEY_C
 	extern KEY_SPACE
 	extern KEY_SHIFT
 	extern KEY_LEFT
@@ -146,6 +153,11 @@ player_update:
 	call rotatePlayer
 	add esp, 8
 	
+	
+	push dword[ebp+12]
+	push dword[ebp+8]
+	call zoomCamera
+	add esp, 8	
 	
 	mov esp, ebp
 	pop ebp
@@ -379,6 +391,46 @@ _rotatePlayer_no_down:
 	addss xmm1, xmm0
 	movss dword[eax+12], xmm1
 	
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+zoomCamera:			;void zoomCamera(player* player, float deltaTimeInSec)
+	push ebp
+	mov ebp, esp
+	
+	push dword[ebp+12]
+	push dword[ZOOM_SPEED]
+	
+	push KEY_C
+	call input_isKeyHeld
+	add esp, 4
+	cmp eax, 0
+	je _zoom_not_in_zoom
+	jmp _zoom_in_zoom
+		_zoom_not_in_zoom:
+		push dword[NORMAL_FOV]
+		mov eax, dword[ebp+8]
+		mov eax, dword[eax]
+		push dword[eax+28]		;current fov
+		jmp _zoom_switch_done
+		
+		_zoom_in_zoom:
+		push dword[ZOOMED_FOV]
+		mov eax, dword[ebp+8]
+		mov eax, dword[eax]
+		push dword[eax+28]		;current fov
+		jmp _zoom_switch_done
+	_zoom_switch_done:
+	
+	call math_basedLerp
+	add esp, 16
+	
+	mov eax, dword[ebp+8]
+	mov eax, dword[eax]
+	fstp dword[eax+28]
 	
 	mov esp, ebp
 	pop ebp
