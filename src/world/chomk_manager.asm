@@ -31,6 +31,8 @@ section .text
 	extern chomk_generateChomk
 	extern chomk_destroyChomk
 	
+	extern colliderGroup_printInfo
+	
 	extern physics_registerColliderGroup
 	extern physics_removeColliderGroup
 	
@@ -199,6 +201,7 @@ chomkManager_addChomk:
 	mov eax, dword[ebp-4]
 	push dword[eax+16]
 	call physics_registerColliderGroup
+	call colliderGroup_printInfo
 	add esp, 4
 	
 	_addChomk_done:
