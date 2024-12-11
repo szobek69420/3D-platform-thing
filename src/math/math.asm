@@ -38,7 +38,7 @@ math_lerp:
 	
 	ret
 	
-math_basedLerp:
+math_basedLerp:		;https://github.com/14islands/lerp
 	movss xmm0, dword[ONE]
 	movss xmm1, dword[esp+12]
 	subss xmm0, xmm1

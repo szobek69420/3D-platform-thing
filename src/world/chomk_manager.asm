@@ -31,6 +31,9 @@ section .text
 	extern chomk_generateChomk
 	extern chomk_destroyChomk
 	
+	extern physics_registerColliderGroup
+	extern physics_removeColliderGroup
+	
 	global chomkManager_create		;chomkManager* chomkManager_create(int renderDistance, int seed)
 	global chomkManager_destroy		;void chomkManager_destroy(chomkManager* cm)
 	
@@ -169,12 +172,15 @@ chomkManager_addChomk:
 	push ebp
 	mov ebp, esp
 		
+	sub esp, 4			;chomk
+		
 	mov eax, dword[ebp+8]		;cm in eax
 	
 	push dword[ebp+16]
 	push dword[ebp+12]
 	push dword[eax+52]		;seed
 	call chomk_generateChomk
+	mov dword[ebp-4], eax
 	add esp, 12
 	cmp eax, 0
 	jne _addChomk_no_error
@@ -189,7 +195,11 @@ chomkManager_addChomk:
 	add esp, 8
 	
 	
-	;TODO: add chomk colliders to physics
+	;add chomk colliders to physics
+	mov eax, dword[ebp-4]
+	push dword[eax+16]
+	call physics_registerColliderGroup
+	add esp, 4
 	
 	_addChomk_done:
 	mov esp, ebp
@@ -201,7 +211,11 @@ chomkManager_removeChomk:
 	push ebp
 	mov ebp, esp
 	
-	;TODO: remove chomk colliders from physics
+	;remove chomk colliders from physics
+	mov eax, dword[ebp+12]
+	push dword[eax+16]
+	call physics_removeColliderGroup
+	add esp, 4
 	
 	;free chomk
 	push dword[ebp+12]

@@ -18,8 +18,12 @@ section .rodata
 	
 	print_chomk_info db "Vertex count: %d, index count: %d, face count: %d",10,0
 	
+	print_int_format db "%d",10,0
+	
 	CHOMK_WIDTH_FLOAT dd 16.0
 	CHOMK_HEIGHT_FLOAT dd 50.0
+	
+	BLOCK_COLLIDER_BOUND_CALC_HELPER dd 0.5, 0.5, 0.5, 0.0
 	
 	ONE dd 1.0
 
@@ -44,6 +48,12 @@ section .text
 	extern renderable_destroy
 	extern renderable_print
 	extern renderable_renderWithFog
+	
+	extern collider_createCollider
+	extern colliderGroup_createColliderGroup
+	extern colliderGroup_destroyColliderGroup
+	extern colliderGroup_addCollider
+	extern colliderGroup_printInfo
 	
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
@@ -87,6 +97,8 @@ chomk_generateChomk:
 	sub esp, 12		;current position for the mesh generation
 	sub esp, 4		;int chunk x pos
 	sub esp, 4		;int chunk z pos
+	sub esp, 16		;vector<collider*> colliders
+	sub esp, 4		;isBlockVisible (helper)
 	
 	
 	;alloc chomk
@@ -178,6 +190,12 @@ _generateChomk_chomk_blocks_malloc_no_error:
 	add esp, 8
 	
 	lea eax, [ebp-52]
+	push 4
+	push eax
+	call vector_init
+	add esp, 8
+	
+	lea eax, [ebp-100]
 	push 4
 	push eax
 	call vector_init
@@ -300,6 +318,7 @@ _generateChomk_mesh_y_loop_start:
 		mov edi, 1
 		
 		_generateChomk_mesh_z_loop_start:
+			mov dword[ebp-104], 0		;isBlockVisible == 0
 		
 			xor edx, edx
 			mov dl, byte[ebx]
@@ -312,20 +331,22 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_neg_z_not_visible
 			
-			lea eax, [ebp-52]
-			push eax
-			lea eax, [ebp-36]
-			push eax
-			lea eax, [ebp-20]
-			push eax
-			lea eax, [ebp-76]
-			push eax
-			push 0
-			xor eax, eax
-			mov al, byte[ebx]
-			push eax
-			call _generateChomk_helper
-			add esp, 24
+				lea eax, [ebp-52]
+				push eax
+				lea eax, [ebp-36]
+				push eax
+				lea eax, [ebp-20]
+				push eax
+				lea eax, [ebp-76]
+				push eax
+				push 0
+				xor eax, eax
+				mov al, byte[ebx]
+				push eax
+				call _generateChomk_helper
+				add esp, 24
+				
+				mov dword[ebp-104], 69		;isBlockVisible == true
 			_generateChomk_neg_z_not_visible:
 			
 			;neg x
@@ -334,20 +355,22 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_neg_x_not_visible
 			
-			lea eax, [ebp-52]
-			push eax
-			lea eax, [ebp-36]
-			push eax
-			lea eax, [ebp-20]
-			push eax
-			lea eax, [ebp-76]
-			push eax
-			push 1
-			xor eax, eax
-			mov al, byte[ebx]
-			push eax
-			call _generateChomk_helper
-			add esp, 24
+				lea eax, [ebp-52]
+				push eax
+				lea eax, [ebp-36]
+				push eax
+				lea eax, [ebp-20]
+				push eax
+				lea eax, [ebp-76]
+				push eax
+				push 1
+				xor eax, eax
+				mov al, byte[ebx]
+				push eax
+				call _generateChomk_helper
+				add esp, 24
+				
+				mov dword[ebp-104], 69		;isBlockVisible == true
 			_generateChomk_neg_x_not_visible:
 			
 			;pos z
@@ -356,20 +379,22 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_pos_z_not_visible
 			
-			lea eax, [ebp-52]
-			push eax
-			lea eax, [ebp-36]
-			push eax
-			lea eax, [ebp-20]
-			push eax
-			lea eax, [ebp-76]
-			push eax
-			push 2
-			xor eax, eax
-			mov al, byte[ebx]
-			push eax
-			call _generateChomk_helper
-			add esp, 24
+				lea eax, [ebp-52]
+				push eax
+				lea eax, [ebp-36]
+				push eax
+				lea eax, [ebp-20]
+				push eax
+				lea eax, [ebp-76]
+				push eax
+				push 2
+				xor eax, eax
+				mov al, byte[ebx]
+				push eax
+				call _generateChomk_helper
+				add esp, 24
+				
+				mov dword[ebp-104], 69		;isBlockVisible == true
 			_generateChomk_pos_z_not_visible:
 			
 			;pos x
@@ -378,20 +403,22 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_pos_x_not_visible
 			
-			lea eax, [ebp-52]
-			push eax
-			lea eax, [ebp-36]
-			push eax
-			lea eax, [ebp-20]
-			push eax
-			lea eax, [ebp-76]
-			push eax
-			push 3
-			xor eax, eax
-			mov al, byte[ebx]
-			push eax
-			call _generateChomk_helper
-			add esp, 24
+				lea eax, [ebp-52]
+				push eax
+				lea eax, [ebp-36]
+				push eax
+				lea eax, [ebp-20]
+				push eax
+				lea eax, [ebp-76]
+				push eax
+				push 3
+				xor eax, eax
+				mov al, byte[ebx]
+				push eax
+				call _generateChomk_helper
+				add esp, 24
+				
+				mov dword[ebp-104], 69		;isBlockVisible == true
 			_generateChomk_pos_x_not_visible:
 		
 			;pos y
@@ -400,20 +427,22 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_pos_y_not_visible
 			
-			lea eax, [ebp-52]
-			push eax
-			lea eax, [ebp-36]
-			push eax
-			lea eax, [ebp-20]
-			push eax
-			lea eax, [ebp-76]
-			push eax
-			push 4
-			xor eax, eax
-			mov al, byte[ebx]
-			push eax
-			call _generateChomk_helper
-			add esp, 24
+				lea eax, [ebp-52]
+				push eax
+				lea eax, [ebp-36]
+				push eax
+				lea eax, [ebp-20]
+				push eax
+				lea eax, [ebp-76]
+				push eax
+				push 4
+				xor eax, eax
+				mov al, byte[ebx]
+				push eax
+				call _generateChomk_helper
+				add esp, 24
+				
+				mov dword[ebp-104], 69		;isBlockVisible == true
 			_generateChomk_pos_y_not_visible:
 			
 			;neg y
@@ -422,22 +451,54 @@ _generateChomk_mesh_y_loop_start:
 			cmp edx, BLOCK_AIR
 			jne _generateChomk_neg_y_not_visible
 			
-			lea eax, [ebp-52]
-			push eax
-			lea eax, [ebp-36]
-			push eax
-			lea eax, [ebp-20]
-			push eax
-			lea eax, [ebp-76]
-			push eax
-			push 5
-			xor eax, eax
-			mov al, byte[ebx]
-			push eax
-			call _generateChomk_helper
-			add esp, 24
+				lea eax, [ebp-52]
+				push eax
+				lea eax, [ebp-36]
+				push eax
+				lea eax, [ebp-20]
+				push eax
+				lea eax, [ebp-76]
+				push eax
+				push 5
+				xor eax, eax
+				mov al, byte[ebx]
+				push eax
+				call _generateChomk_helper
+				add esp, 24
+				
+				mov dword[ebp-104], 69		;isBlockVisible == true
 			_generateChomk_neg_y_not_visible:
 			
+			mov edx, dword[ebp-104]
+			cmp edx, 0
+			je _generateChomk_no_collider
+				sub esp, 32		;place for two vec4s (because of sse)
+				movups xmm1, [BLOCK_COLLIDER_BOUND_CALC_HELPER]
+				
+				;calc lower bound
+				movups xmm0, [ebp-76]
+				subps xmm0, xmm1
+				movups [esp], xmm0
+				
+				;calc upper bound
+				movups xmm0, [ebp-76]
+				addps xmm0, xmm1
+				movups [esp+16], xmm0
+				
+				lea eax, [esp+16]
+				mov edx, esp
+				push eax
+				push edx
+				call collider_createCollider
+				add esp, 40
+				
+				lea edx, [ebp-100]
+				push eax
+				push edx
+				call vector_push_back
+				add esp, 8
+				
+			_generateChomk_no_collider:
 			
 			_generateChomk_air:
 			movss xmm0, dword[ONE]
@@ -490,6 +551,26 @@ _generateChomk_mesh_y_loop_start:
 	call renderable_create
 	add esp, 24
 
+	;make collider group and fill it up
+	call colliderGroup_createColliderGroup
+	mov edx, dword[ebp-4]
+	mov dword[edx+16], eax
+	mov ebx, eax			;cg in ebx
+	mov esi, dword[ebp-100]		;index in esi
+	mov edi, dword[ebp-88]		;colliders in edi
+	cmp esi, 0
+	je _generateChomk_cg_loop_end
+	_generateChomk_cg_loop_start:
+		push dword[edi]
+		push ebx
+		call colliderGroup_addCollider
+		add esp, 8
+		
+		add edi, 4
+		dec esi
+		cmp esi, 0
+		jg _generateChomk_cg_loop_start
+	_generateChomk_cg_loop_end:
 	
 	;free resources
 	lea eax, [ebp-20]
@@ -507,6 +588,10 @@ _generateChomk_mesh_y_loop_start:
 	call vector_destroy
 	add esp, 4
 	
+	lea eax, [ebp-100]
+	push eax
+	call vector_destroy
+	add esp, 4
 	
 	;set return value
 	mov eax, dword[ebp-4]
@@ -660,11 +745,19 @@ chomk_destroyChomk:
 	call free
 	add esp, 4
 	
+	;destroy renderable
 	mov eax, dword[ebp+8]
 	push dword[eax+12]
 	call renderable_destroy
 	call free
 	add esp, 4
+	
+	;destroy collider group
+	mov eax, dword[ebp+8]
+	push 69
+	push dword[eax+16]
+	call colliderGroup_destroyColliderGroup
+	add esp, 8
 	
 	push dword[ebp+8]
 	call free

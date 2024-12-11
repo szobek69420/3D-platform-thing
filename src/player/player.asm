@@ -7,8 +7,8 @@
 section .rodata
 	init_error_message db "Player couldn't be created lol",10,0
 	
-	HORIZONTAL_LOOK_SENSITIVITY dd 180.0
-	VERTICAL_LOOK_SENSITIVITY dd 180.0
+	HORIZONTAL_LOOK_SENSITIVITY dd 120.0
+	VERTICAL_LOOK_SENSITIVITY dd 120.0
 	MOVEMENT_SPEED dd 15.0
 	
 	WORLD_UP dd 0.0, 1.0, 0.0
@@ -26,6 +26,8 @@ section .rodata
 	ZOOMED_FOV dd 10.0
 	ZOOM_SPEED dd 0.1
 	
+	GRAVITY dd -30.0
+	JUMP_STRENGTH dd 20.0
 
 section .text
 	extern printf
@@ -55,6 +57,8 @@ section .text
 	extern KEY_RIGHT
 	extern KEY_UP
 	extern KEY_DOWN
+	
+	extern COLLISION_NEG_Y
 	
 	global player_init		;player* player_init(Camera* cum)
 	global player_destroy		;void player_destroy()
@@ -175,12 +179,19 @@ movePlayer:			;void movePlayer(player* player, float deltaTimeInSec)
 	mov ebx, dword[ebp+12]
 	mov ebx, dword[ebx]			;cum in eax
 	
-	;set velocity to zero
+	;set (horizontal) velocity to zero
 	mov eax, dword[ebp+12]
 	mov eax, dword[eax+4]
 	mov dword[eax+36], 0
-	mov dword[eax+40], 0
+	;mov dword[eax+40], 0
 	mov dword[eax+44], 0
+	
+	;apply gravity
+	movss xmm0, dword[ebp+16]
+	mulss xmm0, dword[GRAVITY]
+	movss xmm1, dword[eax+40]
+	addss xmm1, xmm0
+	movss dword[eax+40], xmm1
 	
 	;calculate forward and right
 	lea eax, [ebp-12]
@@ -262,31 +273,24 @@ _movePlayer_no_right:
 	add esp, 12
 _movePlayer_no_left:
 
+	;jump
 	push KEY_SPACE
 	call input_isKeyHeld
 	add esp, 4
 	cmp eax, 0
 	je _movePlayer_no_up
 	
-	push dword[MOVEMENT_SPEED]
-	push WORLD_UP
-	push dword[ebp+12]
-	call movePlayerHelper
-	add esp, 12
+	mov eax, dword[ebp+12]
+	mov eax, dword[eax+4]
+	mov edx, dword[eax+48]
+	and edx, COLLISION_NEG_Y
+	cmp edx, 0
+	je _movePlayer_no_up
+	
+	mov edx, dword[JUMP_STRENGTH]
+	mov dword[eax+40], edx
 _movePlayer_no_up:
 
-	push KEY_SHIFT
-	call input_isKeyHeld
-	add esp, 4
-	cmp eax, 0
-	je _movePlayer_no_down
-	
-	push dword[MOVEMENT_SPEED]
-	push WORLD_DOWN
-	push dword[ebp+12]
-	call movePlayerHelper
-	add esp, 12
-_movePlayer_no_down:
 	
 	mov esp, ebp
 	pop ebx
