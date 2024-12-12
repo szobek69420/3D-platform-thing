@@ -38,10 +38,13 @@ section .text
 	
 	extern vec3_add
 	extern vec3_print
+	extern vec3_sub
+	extern vec3_magnitude
 	
 	extern collider_resolveCollision
 	extern collider_destroyCollider
 	extern collider_calculateDistance
+	extern collider_raycast
 	
 	global colliderGroup_printColliderGroupCount
 	
@@ -53,6 +56,11 @@ section .text
 	
 	global colliderGroup_collide				;void colliderGroup_collide(colliderGroup* cg, collider* dynamicCollider)
 	global colliderGroup_isColliderInBounds			;int colliderGroup_isColliderInBounds(colliderGroup* cg, collider* collider)
+	
+	;it is basically a colliderGroup_collide, but instead of resolving a collision between it and a collider
+	;it is using the given information to raycast
+	;returns 0 if no hit
+	global colliderGroup_physicsRaycastHelper		;int colliderGroup_physicsRaycastHelper(colliderGroup* cg, collider* raycastCollider, vec3* raycastPosition, vec3* raycastDirection, float raycastDistance)
 	
 	global colliderGroup_printInfo				;void colliderGroup_printInfo(colliderGroup* cg)
 	
@@ -331,6 +339,179 @@ colliderGroup_isColliderInBounds:
 
 _isColliderInBounds_done:
 	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+colliderGroup_physicsRaycastHelper		;int colliderGroup_physicsRaycastHelper(colliderGroup* cg, collider* raycastCollider, vec3* raycastPosition, vec3* raycastDirection, float raycastDistance)
+	push ebp
+	push ebx
+	push esi
+	push edi
+	mov ebp, esp
+	
+	sub esp, 4		;temp collider array
+	sub esp, 4		;current distance
+	sub esp, 12		;hitpoint
+	sub esp, 4		;hit direction
+	sub esp, 12		;original collider pos
+	sub esp, 4		;hit collider
+	
+	;init data
+	mov eax, dword[ebp+36]
+	mov dword[ebp-8], eax
+	mov dword[ebp-24], 0
+	
+	mov eax, dword[ebp+24]
+	add eax, 24
+	lea ecx, [ebp-36]
+	push 12
+	push eax
+	push ecx
+	call memcpy
+	add esp, 12
+	
+	mov ebx, dword[ebp+20]		;cg in ebx
+	
+	;check if the dynamic collider is in bounds
+	push dword[ebp+24]
+	push dword[ebp+20]
+	call colliderGroup_isColliderInBounds
+	add esp, 8
+	cmp eax, 0
+	je _physicsRaycastHelp_no_hit
+	
+	;set the reference collider
+	mov eax, dword[ebp+24]
+	mov dword[collisionReferenceCollider], eax
+	
+	
+	;make a copy of the static colliders and sort them according to distace from the dynamic collider
+	mov eax, dword[ebx]
+	shl eax, 2
+	push eax
+	call malloc
+	mov dword[ebp-4], eax
+	push dword[ebx+12]
+	push eax
+	call memcpy
+	add esp, 12
+	
+	push collider_distanceCmp
+	push 4
+	push dword[ebx]
+	push dword[ebp-4]
+	call qsort
+	add esp, 16
+	
+	
+	;resolve collisions
+	mov edi, dword[ebp-4]		;colliders in edi
+	mov esi, dword[ebx]		;collider count in esi
+	cmp esi, 0
+	je _physicsRaycastHelp_resolve_collision_end
+	sub esp, 4			;prealloc function parameters
+	push dword[ebp+24]
+	_physicsRaycastHelp_resolve_collision_start:
+		mov eax, dword[edi]
+		mov dword[esp+4], eax
+		call collider_resolveCollision
+		cmp eax, 0
+		je _physicsRaycastHelp_resolve_collision_end
+		
+		;raycast
+		push dword[ebp+24]
+		push dword[ebp-8]
+		push dword[ebp+32]
+		push dword[ebp+28]
+		push dword[edi]
+		call collider_raycast
+		add esp, 20
+		cmp eax, 0
+		je _physicsRaycastHelp_no_raycast_hit
+			mov eax, dword[ebp+24]
+			
+			mov ecx, dword[eax+48]
+			mov dword[ebp-24], ecx
+			
+			mov ecx, dword[eax+24]
+			mov dword[ebp-20], ecx
+			mov ecx, dword[eax+28]
+			mov dword[ebp-16], ecx
+			mov ecx, dword[eax+32]
+			mov dword[ebp-12], ecx
+			
+			mov ecx, dword[eax+56]
+			mov dword[ebp-40], ecx
+			
+			;calc distance
+			sub esp, 12
+			mov eax, esp
+			mov ecx, dword[ebp+28]
+			lea edx, [ebp-20]
+			push ecx
+			push edx
+			push eax
+			call vec3_sub
+			call vec3_magnitude
+			fstp dword[ebp-8]
+			add esp, 24
+		_physicsRaycastHelp_no_raycast_hit:
+		
+		;restore collider position
+		mov eax, dword[ebp+24]
+		add eax, 24
+		lea ecx, [ebp-36]
+		push 12
+		push ecx
+		push eax
+		call memcpy
+		add esp, 12
+		
+		add edi, 4
+		dec esi
+		cmp esi, 0
+		jg _physicsRaycastHelp_resolve_collision_start
+	_physicsRaycastHelp_resolve_collision_end:
+	
+
+	;free copied array
+	push dword[ebp-4]
+	call free
+	
+	mov eax, dword[ebp-24]
+	cmp eax, 0
+	je _physicsRaycastHelp_no_hit
+		mov eax, dword[ebp+24]
+		
+		;copy hit direction
+		mov ecx, dword[ebp-24]
+		mov dword[eax+48], ecx
+		
+		;copy hit position
+		mov ecx, dword[ebp-20]
+		mov dword[eax+24], ecx
+		mov ecx, dword[ebp-16]
+		mov dword[eax+28], ecx
+		mov ecx, dword[ebp-12]
+		mov dword[eax+32], ecx
+		
+		;copy hit collider
+		mov ecx, dword[ebp-40]
+		mov dword[eax+56], ecx
+		
+		mov eax, 69
+		jmp _physicsRaycastHelp_done
+_physicsRaycastHelp_no_hit:
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], 0
+		mov dword[eax+56], 0
+		xor eax, eax
+_physicsRaycastHelp_done:
+	mov esp, ebp
+	pop edi
+	pop esi
+	pop ebx
 	pop ebp
 	ret
 	

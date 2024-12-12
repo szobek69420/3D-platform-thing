@@ -9,22 +9,12 @@ section .rodata
 	print_frame_count db "FPS: %d",10,0
 	
 	
-	kuba1_scale dd 1.0, 3.0, 1.0
-	kuba2_position dd -1.0, -2.0, 0.0
-	kuba3_position dd 1.0, -2.0, 0.0
-	
-	temp_collider_lower_bound dd -1.0, -1.0, -1.0
-	temp_collider_upper_bound dd 1.0, 1.0, 1.0
-	
 	RAYCAST_KNOB_SCALE dd 0.1, 0.1, 0.1
 	
 section .bss
 	window resb 60
 	event_buffer resb 16
 	camera resb 36
-	kuba1 resb 84
-	kuba2 resb 84
-	kuba3 resb 84
 	pplayer resb 4	
 	pv_matrix resb 64
 	pchomk_manager resb 4
@@ -35,10 +25,6 @@ section .bss
 	
 	raycast_knob resb 84		;renderable
 	
-	temp_collider resb 4
-	temp_collider_group resb 4
-	
-	temp_chomk resb 4
 	
 section .data
 	frameCount dd 0
@@ -127,6 +113,13 @@ _start:
 	mov dword[pplayer], eax
 	add esp, 4
 	
+	;add player to physics
+	mov eax, dword[pplayer]
+	mov eax, dword[eax+4]
+	push eax
+	call physics_registerDynamicCollider
+	add esp, 4
+	
 	;create chomk manager
 	push 2
 	call chomkManager_create
@@ -143,75 +136,6 @@ _start:
 	push RAYCAST_KNOB_SCALE
 	push eax
 	call memcpy
-	add esp, 12
-	
-	;create kubak
-	push kuba1
-	call renderable_createKuba
-	mov dword[esp], kuba2
-	call renderable_createKuba
-	mov dword[esp], kuba3
-	call renderable_createKuba
-	add esp, 4
-	
-	mov eax, kuba1
-	add eax, 72
-	push 12
-	push kuba1_scale
-	push eax
-	call memcpy
-	add esp, 12
-	
-	mov eax, kuba2
-	add eax, 48
-	push 12
-	push kuba2_position
-	push eax
-	call memcpy
-	add esp, 12
-	
-	mov eax, kuba3
-	add eax, 48
-	push 12
-	push kuba3_position
-	push eax
-	call memcpy
-	add esp, 12
-	
-	;create temp collider and cg
-	push temp_collider_upper_bound
-	push temp_collider_lower_bound
-	call collider_createCollider
-	mov dword[temp_collider], eax
-	add esp, 8
-	
-	call colliderGroup_createColliderGroup
-	mov dword[temp_collider_group], eax
-	
-	push dword[temp_collider]
-	push dword[temp_collider_group]
-	call colliderGroup_addCollider
-	add esp, 8
-	
-	
-	;add colliders and collider groups to physics
-	mov eax, dword[pplayer]
-	mov eax, dword[eax+4]
-	push eax
-	call physics_registerDynamicCollider
-	add esp, 4
-	
-	mov eax, dword[temp_collider_group]
-	push eax
-	call physics_registerColliderGroup
-	add esp, 4
-	
-	;generate temp chomk
-	push 0
-	push 0
-	push 0
-	call chomk_generateChomk
-	mov dword[temp_chomk], eax
 	add esp, 12
 	
 	call clock

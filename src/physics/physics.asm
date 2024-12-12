@@ -2,6 +2,10 @@ section .rodata
 	GAYCAST_COLLIDER_LOWER_BOUND dd -0.1, -0.1, -0.1
 	GAYCAST_COLLIDER_UPPER_BOUND dd 0.1, 0.1, 0.1
 	
+	;this is the size of the raycast collider when checking if it is in a collidergroup
+	GAYCAST_COLLIDER_SEARCH_LOWER_BOUND dd 0.0, 0.0, 0.0
+	GAYCAST_COLLIDER_SEARCH_UPPER_BOUND dd 0.0, 0.0, 0.0
+	
 	GAYCAST_INITIAL_PRECISION dd 0.5
 	
 	HALF dd 0.5
@@ -30,7 +34,9 @@ section .text
 	extern collider_createCollider
 	extern collider_destroyCollider
 	extern colliderGroup_collide
-	extern collider_raycast
+	extern colliderGroup_raycastHelper
+	extern colliderGroup_isColliderInBounds
+	extern colliderGroup_physicsRaycastHelper
 	
 	global physics_init			;void physics_init()
 	global physics_deinit			;void physics_deinit()
@@ -226,6 +232,9 @@ physics_staticRaycast:
 	sub esp, 12		;last position with no collision
 	sub esp, 12		;current position
 	sub esp, 12		;current step vector
+	sub esp, 4		;currently examined cg
+	
+	mov dword[ebp-52], 0		;set the current cg to NULL
 	
 	;calculate current step size (adjust the initial precision so that the distance is divisible by it)
 	fld dword[ebp+28]
@@ -321,41 +330,77 @@ physics_staticRaycast:
 		call memcpy
 		add esp, 12
 		
-		mov esi, dword[REGISTERED_COLLIDER_GROUPS]		;index in esi
-		mov eax, REGISTERED_COLLIDER_GROUPS
-		mov edi, dword[eax+12]					;cgs in edi
-		push dword[ebp-4]
-		_staticRaycast_collision_loop_start:
-			push dword[edi]
-			call colliderGroup_collide
-			add esp, 4
-			
-			add edi, 4
-			dec esi
-			cmp esi, 0
-			jg _staticRaycast_collision_loop_start
-		add esp, 4
-		
-		;is there a hit?
+		;set the collider to the search size
 		mov eax, dword[ebp-4]
-		mov eax, dword[eax+48]
+		push 24
+		push 0
+		push eax
+		call memset
+		add esp, 12
+		
+		;check if it is still in the current collider
+		mov eax, dword[ebp-52]
 		cmp eax, 0
-		je _staticRaycast_step_loop_no_hit
-			mov eax, dword[ebp-4]
-			mov eax, dword[eax+56]
+		je _staticRaycast_cg_search_is_needed
+		
+		push dword[ebp-4]
+		push dword[ebp-52]
+		call colliderGroup_isColliderInBounds
+		add esp, 8
+		cmp eax, 0
+		jne _staticRaycast_no_cg_search_is_needed
+		_staticRaycast_cg_search_is_needed:
+			mov dword[ebp-52], 0
+			mov esi, dword[REGISTERED_COLLIDER_GROUPS]		;index in esi
+			mov eax, REGISTERED_COLLIDER_GROUPS
+			mov edi, dword[eax+12]					;cgs in edi
 			push dword[ebp-4]
-			push dword[ebp+28]
-			push dword[ebp+24]
-			push dword[ebp+20]
-			push eax
-			call collider_raycast
-			add esp, 20
-			
-			mov eax, dword[ebp-4]
-			mov eax, dword[eax+48]
-			cmp eax, 0
-			jne _staticRaycast_step_loop_end
-		_staticRaycast_step_loop_no_hit:
+			_staticRaycast_cg_search_loop_start:
+				push dword[edi]
+				call colliderGroup_isColliderInBounds
+				add esp, 4
+				cmp eax, 0
+				je _staticRaycast_cg_search_continue
+				
+				mov eax, dword[edi]
+				mov dword[ebp-52], eax
+				jmp _staticRaycast_cg_search_loop_end
+				
+				_staticRaycast_cg_search_continue:
+				add edi, 4
+				dec esi
+				cmp esi, 0
+				jg _staticRaycast_cg_search_loop_start
+			_staticRaycast_cg_search_loop_end:
+			add esp, 4
+		_staticRaycast_no_cg_search_is_needed:
+		
+		mov eax, dword[ebp-52]
+		cmp eax, 0
+		je _staticRaycast_step_loop_continue
+		
+		;set the collider to the collision size
+		mov eax, dword[ebp-4]
+		push 24
+		push GAYCAST_COLLIDER_LOWER_BOUND
+		push eax
+		call memcpy
+		add esp, 12
+		
+		push dword[ebp+28]
+		push dword[ebp+24]
+		push dword[ebp+20]
+		push dword[ebp-4]
+		push dword[ebp-52]
+		call colliderGroup_physicsRaycastHelper
+		add esp, 20
+		
+		;was there a hit?
+		cmp eax, 0
+		jne _staticRaycast_step_loop_end
+
+		
+		_staticRaycast_step_loop_continue:
 		dec ebx
 		cmp ebx, 0
 		jg _staticRaycast_step_loop_start

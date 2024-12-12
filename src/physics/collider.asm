@@ -75,6 +75,7 @@ section .text
 	global collider_resolveCollision	;int collider_resolveCollision(collider* dynamic, collider* static)
 	
 	global collider_calculateDistance	;float collider_calculateDistance(collider* c1, collider* c2),  pushes the result onto the FPU stack
+	global collider_calculateDistanceFromPoint	;float collider_calculateDistanceFromPoint(collider* collider, vec3* point),  pushes the result onto the FPU stack
 	global collider_raycast			;void collider_raycast(collider* target, vec3* position, vec3* direction, float distance, collider* resultBuffer)		;writes the raycast result into the result buffer's collision info
 	
 	
@@ -574,6 +575,79 @@ collider_calculateDistance:
 	ja _not_greater_6
 		movss xmm5, dword[ebp-8]
 	_not_greater_6:
+	
+	movss dword[ebp-16], xmm5
+	fld dword[ebp-16]
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+collider_distanceFromPoint:
+	push ebp
+	mov ebp, esp
+	
+	movss xmm5, dword[VERY_LOW_NUMBER]
+	sub esp, 16		;temp
+	
+	;c1 upper and c2 lower
+	mov eax, dword[ebp+8]
+	movups xmm0, [eax+24]
+	movups xmm1, [eax+12]
+	addps xmm0, xmm1
+	
+	mov ecx, dword[ebp+12]
+	movups xmm1, [ecx+24]
+	movups xmm2, [ecx]
+	addps xmm1, xmm2
+	
+	subps xmm1, xmm0
+	movups [ebp-16], xmm1
+	
+	ucomiss xmm5, dword[ebp-16]
+	ja _point_not_greater_1
+		movss xmm5, dword[ebp-16]
+	_point_not_greater_1:
+	
+	ucomiss xmm5, dword[ebp-12]
+	ja _point_not_greater_2
+		movss xmm5, dword[ebp-12]
+	_point_not_greater_2:
+	
+	ucomiss xmm5, dword[ebp-8]
+	ja _point_not_greater_3
+		movss xmm5, dword[ebp-8]
+	_point_not_greater_3:
+	
+	;c1 lower and c2 upper
+	mov eax, dword[ebp+12]
+	movups xmm0, [eax+24]
+	movups xmm1, [eax+12]
+	addps xmm0, xmm1
+	
+	mov ecx, dword[ebp+8]
+	movups xmm1, [ecx+24]
+	movups xmm2, [ecx]
+	addps xmm1, xmm2
+	
+	subps xmm1, xmm0
+	movups [ebp-16], xmm1
+	
+	ucomiss xmm5, dword[ebp-16]
+	ja _point_not_greater_4
+		movss xmm5, dword[ebp-16]
+	_point_not_greater_4:
+	
+	ucomiss xmm5, dword[ebp-12]
+	ja _point_not_greater_5
+		movss xmm5, dword[ebp-12]
+	_point_not_greater_5:
+	
+	ucomiss xmm5, dword[ebp-8]
+	ja _point_not_greater_6
+		movss xmm5, dword[ebp-8]
+	_point_not_greater_6:
 	
 	movss dword[ebp-16], xmm5
 	fld dword[ebp-16]
