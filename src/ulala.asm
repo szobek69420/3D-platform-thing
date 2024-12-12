@@ -16,6 +16,8 @@ section .rodata
 	temp_collider_lower_bound dd -1.0, -1.0, -1.0
 	temp_collider_upper_bound dd 1.0, 1.0, 1.0
 	
+	RAYCAST_KNOB_SCALE dd 0.1, 0.1, 0.1
+	
 section .bss
 	window resb 60
 	event_buffer resb 16
@@ -30,6 +32,8 @@ section .bss
 	lastFrame resb 4		;clock_t
 	frameHelper resb 4		;clock_t
 	deltaTime resb 4		;float
+	
+	raycast_knob resb 84		;renderable
 	
 	temp_collider resb 4
 	temp_collider_group resb 4
@@ -66,6 +70,7 @@ section .text
 	
 	extern renderable_render
 	extern renderable_createKuba
+	extern renderable_destroy
 	
 	extern collider_createCollider
 	extern collider_resolveCollision
@@ -88,6 +93,9 @@ section .text
 	extern chomkManager_create
 	extern chomkManager_generate
 	extern chomkManager_render
+	
+	
+	global raycast_knob
 	
 	global _start
 	
@@ -124,6 +132,18 @@ _start:
 	call chomkManager_create
 	mov dword[pchomk_manager], eax
 	add esp, 4
+	
+	;create raycast knob
+	push raycast_knob
+	call renderable_createKuba
+	add esp, 4
+	mov eax, raycast_knob
+	add eax, 72
+	push 12
+	push RAYCAST_KNOB_SCALE
+	push eax
+	call memcpy
+	add esp, 12
 	
 	;create kubak
 	push kuba1
@@ -279,14 +299,10 @@ _skip_fps_print:
 	call camera_viewProjection
 	add esp, 8
 	
-	;render kuba
+	;render raycast knob
 	push pv_matrix
 	push window
-	push kuba1
-	call renderable_render
-	mov dword[esp], kuba2
-	call renderable_render
-	mov dword[esp], kuba3
+	push raycast_knob
 	call renderable_render
 	add esp, 12
 	
@@ -306,6 +322,11 @@ _skip_fps_print:
 	add esp, 4
 	
 	jmp _game_loop
+	
+	;delete raycast knob
+	push raycast_knob
+	call renderable_destroy
+	add esp, 4
 	
 	;deinit physics
 	call physics_deinit

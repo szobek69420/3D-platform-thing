@@ -7,6 +7,8 @@
 section .rodata
 	init_error_message db "Player couldn't be created lol",10,0
 	
+	raycast_hit_message db "raycast hit",10,0
+	
 	HORIZONTAL_LOOK_SENSITIVITY dd 120.0
 	VERTICAL_LOOK_SENSITIVITY dd 120.0
 	MOVEMENT_SPEED dd 15.0
@@ -22,12 +24,16 @@ section .rodata
 	ZERO dd 0.0
 	ONE dd 1.0
 	
+	REACH dd 4.0
+	
 	NORMAL_FOV dd 60.0
 	ZOOMED_FOV dd 10.0
 	ZOOM_SPEED dd 0.1
 	
 	GRAVITY dd -30.0
 	JUMP_STRENGTH dd 20.0
+	
+	RAYCAST_KNOB_UNUSED_POSITION dd 0.0, 1000000.0, 0.0
 
 section .text
 	extern printf
@@ -45,6 +51,9 @@ section .text
 	extern math_basedLerp
 
 	extern collider_createCollider
+	extern collider_destroyCollider
+	
+	extern physics_staticRaycast
 	
 	extern KEY_W
 	extern KEY_A
@@ -59,6 +68,8 @@ section .text
 	extern KEY_DOWN
 	
 	extern COLLISION_NEG_Y
+	
+	extern raycast_knob
 	
 	global player_init		;player* player_init(Camera* cum)
 	global player_destroy		;void player_destroy()
@@ -124,6 +135,11 @@ player_destroy:
 	push ebp
 	mov ebp, esp
 	
+	mov eax, dword[ebp+8]
+	push dword[eax+4]
+	call collider_destroyCollider
+	add esp, 4
+	
 	push dword[ebp+8]
 	call free
 	
@@ -162,6 +178,10 @@ player_update:
 	push dword[ebp+8]
 	call zoomCamera
 	add esp, 8	
+	
+	push dword[ebp+8]
+	call gaycast
+	add esp, 4
 	
 	mov esp, ebp
 	pop ebp
@@ -436,6 +456,67 @@ zoomCamera:			;void zoomCamera(player* player, float deltaTimeInSec)
 	mov eax, dword[eax]
 	fstp dword[eax+28]
 	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+gaycast:	;void gaycast(player* player)
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 12		;look direction
+	sub esp, 4		;raycast result
+	
+	mov eax, dword[ebp+8]
+	lea ecx, [ebp-12]
+	push ecx
+	push dword[eax]
+	call camera_forward
+	add esp, 8
+	
+	mov eax, dword[ebp+8]
+	lea ecx, [ebp-12]
+	push dword[REACH]
+	push ecx
+	push dword[eax]
+	call physics_staticRaycast
+	mov dword[ebp-16], eax
+	add esp, 12
+	
+	cmp eax, 0
+	je _gaycast_no_hit
+	
+	_gaycast_hit:
+		;move raycast knob
+		mov eax, raycast_knob
+		add eax, 48
+		mov ecx, dword[ebp-16]
+		add ecx, 24
+		push 12
+		push ecx
+		push eax
+		call memcpy
+		add esp, 12
+		
+		;destroy the returned collider
+		push dword[ebp-16]
+		call collider_destroyCollider
+		add esp, 4
+		
+		jmp _gaycast_done
+		
+	_gaycast_no_hit:
+		;move raycast knob
+		mov eax, raycast_knob
+		add eax, 48
+		push 12
+		push RAYCAST_KNOB_UNUSED_POSITION
+		push eax
+		call memcpy
+		add esp, 12
+	
+	_gaycast_done:
 	mov esp, ebp
 	pop ebp
 	ret
