@@ -1,6 +1,6 @@
 section .rodata
-	GAYCAST_COLLIDER_LOWER_BOUND dd -0.005, -0.005, -0.005
-	GAYCAST_COLLIDER_UPPER_BOUND dd 0.005, 0.005, 0.005
+	GAYCAST_COLLIDER_LOWER_BOUND dd -0.1, -0.1, -0.1
+	GAYCAST_COLLIDER_UPPER_BOUND dd 0.1, 0.1, 0.1
 	
 	GAYCAST_INITIAL_PRECISION dd 0.5
 	
@@ -30,6 +30,7 @@ section .text
 	extern collider_createCollider
 	extern collider_destroyCollider
 	extern colliderGroup_collide
+	extern collider_raycast
 	
 	global physics_init			;void physics_init()
 	global physics_deinit			;void physics_deinit()
@@ -97,15 +98,15 @@ physics_step:
 	mov esi, REGISTERED_DYNAMIC_COLLIDERS
 	mov esi, dword[esi+12]
 	mov edi, dword[REGISTERED_DYNAMIC_COLLIDERS]
-_step_clear_info_start:
-	mov eax, dword[esi]
-	mov dword[eax+48], 0
-	mov dword[eax+56], 0
-	
-	add esi, 4
-	dec edi
-	cmp edi, 0
-	jg _step_clear_info_start
+	_step_clear_info_start:
+		mov eax, dword[esi]
+		mov dword[eax+48], 0
+		mov dword[eax+56], 0
+		
+		add esi, 4
+		dec edi
+		cmp edi, 0
+		jg _step_clear_info_start
 	
 	
 	;apply velocity
@@ -218,6 +219,7 @@ physics_staticRaycast:
 	push edi
 	mov ebp, esp
 	
+	
 	sub esp, 4		;the collider
 	sub esp, 4		;current step size float
 	sub esp, 4		;max step count int
@@ -306,8 +308,10 @@ physics_staticRaycast:
 		call vec3_add
 		add esp, 12
 		
-		;move collider
+		;move collider and clear collision info
 		mov eax, dword[ebp-4]
+		mov dword[eax+48], 0
+		mov dword[eax+56], 0
 		add eax, 24
 		lea ecx, [ebp-36]
 		sub esp, 12
@@ -336,8 +340,22 @@ physics_staticRaycast:
 		mov eax, dword[ebp-4]
 		mov eax, dword[eax+48]
 		cmp eax, 0
-		jne _staticRaycast_step_loop_end
-		
+		je _staticRaycast_step_loop_no_hit
+			mov eax, dword[ebp-4]
+			mov eax, dword[eax+56]
+			push dword[ebp-4]
+			push dword[ebp+28]
+			push dword[ebp+24]
+			push dword[ebp+20]
+			push eax
+			call collider_raycast
+			add esp, 20
+			
+			mov eax, dword[ebp-4]
+			mov eax, dword[eax+48]
+			cmp eax, 0
+			jne _staticRaycast_step_loop_end
+		_staticRaycast_step_loop_no_hit:
 		dec ebx
 		cmp ebx, 0
 		jg _staticRaycast_step_loop_start

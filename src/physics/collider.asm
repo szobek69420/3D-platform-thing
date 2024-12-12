@@ -33,8 +33,21 @@ section .rodata
 	print_collider_info4 db "lower bound: ",0
 	print_collider_info5 db "upper bound: ",0
 	
+	print_int_format db "%d",10,0
+	print_float_format db "%.3f",10,0
+	
 	VERY_LARGE_PENETRATION dd 100000.0
 	VERY_LOW_NUMBER dd -10000.0
+	
+	ONE dd 1.0
+	MINUS_ONE dd -1.0
+	
+	COLLIDER_NEG_X_NORMAL dd -1.0, 0.0, 0.0
+	COLLIDER_POS_X_NORMAL dd 1.0, 0.0, 0.0
+	COLLIDER_NEG_Y_NORMAL dd 0.0, -1.0, 0.0
+	COLLIDER_POS_Y_NORMAL dd 0.0, 1.0, 0.0
+	COLLIDER_NEG_Z_NORMAL dd 0.0, 0.0, -1.0
+	COLLIDER_POS_Z_NORMAL dd 0.0, 0.0, 1.0
 
 section .data
 	colliderCount dd 0
@@ -46,7 +59,11 @@ section .text
 	extern memcpy
 	
 	extern vec3_add
+	extern vec3_sub
 	extern vec3_print
+	extern vec3_normalize
+	extern vec3_dot
+	extern vec3_scale
 	
 	global collider_printColliderCount
 	
@@ -58,6 +75,8 @@ section .text
 	global collider_resolveCollision	;int collider_resolveCollision(collider* dynamic, collider* static)
 	
 	global collider_calculateDistance	;float collider_calculateDistance(collider* c1, collider* c2),  pushes the result onto the FPU stack
+	global collider_raycast			;void collider_raycast(collider* target, vec3* position, vec3* direction, float distance, collider* resultBuffer)		;writes the raycast result into the result buffer's collision info
+	
 	
 collider_printColliderCount:
 	push dword[colliderCount]
@@ -207,30 +226,30 @@ _resolveCollision_touch:
 	subss xmm1, xmm0
 	ucomiss xmm1, xmm2
 	ja _resolveCollision_not_neg_x
-	movss xmm2, xmm1
-	movss dword[esp+4], xmm2
-	mov dword[esp], COLLISION_NEG_X
-_resolveCollision_not_neg_x:
+		movss xmm2, xmm1
+		movss dword[esp+4], xmm2
+		mov dword[esp], COLLISION_NEG_X
+	_resolveCollision_not_neg_x:
 
 	movss xmm0, dword[eax+4]
 	movss xmm1, dword[ecx+16]
 	subss xmm1, xmm0
 	ucomiss xmm1, xmm2
 	ja _resolveCollision_not_neg_y
-	movss xmm2, xmm1
-	movss dword[esp+4], xmm2
-	mov dword[esp], COLLISION_NEG_Y
-_resolveCollision_not_neg_y:
+		movss xmm2, xmm1
+		movss dword[esp+4], xmm2
+		mov dword[esp], COLLISION_NEG_Y
+	_resolveCollision_not_neg_y:
 
 	movss xmm0, dword[eax+8]
 	movss xmm1, dword[ecx+20]
 	subss xmm1, xmm0
 	ucomiss xmm1, xmm2
 	ja _resolveCollision_not_neg_z
-	movss xmm2, xmm1
-	movss dword[esp+4], xmm2
-	mov dword[esp], COLLISION_NEG_Z
-_resolveCollision_not_neg_z:
+		movss xmm2, xmm1
+		movss dword[esp+4], xmm2
+		mov dword[esp], COLLISION_NEG_Z
+	_resolveCollision_not_neg_z:
 
 
 	mov edx, eax
@@ -243,30 +262,30 @@ _resolveCollision_not_neg_z:
 	subss xmm1, xmm0
 	ucomiss xmm1, xmm2
 	ja _resolveCollision_not_pos_x
-	movss xmm2, xmm1
-	movss dword[esp+4], xmm2
-	mov dword[esp], COLLISION_POS_X
-_resolveCollision_not_pos_x:
+		movss xmm2, xmm1
+		movss dword[esp+4], xmm2
+		mov dword[esp], COLLISION_POS_X
+	_resolveCollision_not_pos_x:
 
 	movss xmm0, dword[eax+4]
 	movss xmm1, dword[ecx+16]
 	subss xmm1, xmm0
 	ucomiss xmm1, xmm2
 	ja _resolveCollision_not_pos_y
-	movss xmm2, xmm1
-	movss dword[esp+4], xmm2
-	mov dword[esp], COLLISION_POS_Y
-_resolveCollision_not_pos_y:
+		movss xmm2, xmm1
+		movss dword[esp+4], xmm2
+		mov dword[esp], COLLISION_POS_Y
+	_resolveCollision_not_pos_y:
 
 	movss xmm0, dword[eax+8]
 	movss xmm1, dword[ecx+20]
 	subss xmm1, xmm0
 	ucomiss xmm1, xmm2
 	ja _resolveCollision_not_pos_z
-	movss xmm2, xmm1
-	movss dword[esp+4], xmm2
-	mov dword[esp], COLLISION_POS_Z
-_resolveCollision_not_pos_z:
+		movss xmm2, xmm1
+		movss dword[esp+4], xmm2
+		mov dword[esp], COLLISION_POS_Z
+	_resolveCollision_not_pos_z:
 
 
 	mov eax, dword[ebp+8]		;dynamic in eax
@@ -559,6 +578,399 @@ collider_calculateDistance:
 	movss dword[ebp-16], xmm5
 	fld dword[ebp-16]
 	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+collider_raycast:			;void collider_raycast(collider* target, vec3* position, vec3* direction, float distance, collider* resultBuffer)
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 16		;16 lower bound
+	sub esp, 16		;32 upper bound
+	
+	sub esp, 12		;44 normalized direction
+	sub esp, 12		;56 point on plane
+	sub esp, 12		;68 intersection point
+	
+	;calculate lower and upper bound
+	mov eax, dword[ebp+8]
+	movups xmm0, [eax+24]
+	
+	lea ecx, [ebp-16]
+	movups xmm1, [eax]
+	addps xmm1, xmm0
+	movups [ecx], xmm1
+	
+	lea ecx, [ebp-32]
+	movups xmm1, [eax+12]
+	addps xmm1, xmm0
+	movups [ecx], xmm1
+	
+	
+	;calculate normalized direction
+	mov eax, dword[ebp+16]
+	mov ecx, dword[eax]
+	mov dword[ebp-44], ecx
+	mov ecx, dword[eax+4]
+	mov dword[ebp-40], ecx
+	mov ecx, dword[eax+8]
+	mov dword[ebp-36], ecx
+	lea eax, [ebp-44]
+	push eax
+	call vec3_normalize
+	add esp, 4
+	
+	
+	;neg x
+		;point on plane
+		mov eax, dword[ebp-16]
+		mov dword[ebp-56], eax
+		mov eax, dword[ebp-12]
+		mov dword[ebp-52], eax
+		mov eax, dword[ebp-8]
+		mov dword[ebp-48], eax
+		
+		lea eax, [ebp-16]
+		lea ecx, [ebp-32]
+		lea edx, [ebp-56]
+		push dword[ebp+20]
+		push dword[ebp+24]
+		push 0
+		push edx
+		push ecx
+		push eax
+		lea edx, [ebp-44]
+		push edx
+		push COLLIDER_NEG_X_NORMAL
+		push dword[ebp+12]
+		call raycastHelper
+		add esp, 36
+		cmp eax, 0
+		je _raycast_not_neg_x
+		
+		;save the raycast hit
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], COLLISION_POS_X
+		mov ecx, dword[ebp+8]
+		mov dword[eax+56], ecx
+		
+		jmp _raycast_done
+	_raycast_not_neg_x:
+	
+	;pos x
+		;point on plane
+		mov eax, dword[ebp-32]
+		mov dword[ebp-56], eax
+		mov eax, dword[ebp-12]
+		mov dword[ebp-52], eax
+		mov eax, dword[ebp-8]
+		mov dword[ebp-48], eax
+		
+		lea eax, [ebp-16]
+		lea ecx, [ebp-32]
+		lea edx, [ebp-56]
+		push dword[ebp+20]
+		push dword[ebp+24]
+		push 0
+		push edx
+		push ecx
+		push eax
+		lea edx, [ebp-44]
+		push edx
+		push COLLIDER_POS_X_NORMAL
+		push dword[ebp+12]
+		call raycastHelper
+		add esp, 36
+		cmp eax, 0
+		je _raycast_not_pos_x
+		
+		;save the raycast hit
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], COLLISION_NEG_X
+		mov ecx, dword[ebp+8]
+		mov dword[eax+56], ecx
+		
+		jmp _raycast_done
+	_raycast_not_pos_x:
+	
+	;neg y
+		;point on plane
+		mov eax, dword[ebp-16]
+		mov dword[ebp-56], eax
+		mov eax, dword[ebp-12]
+		mov dword[ebp-52], eax
+		mov eax, dword[ebp-8]
+		mov dword[ebp-48], eax
+		
+		lea eax, [ebp-16]
+		lea ecx, [ebp-32]
+		lea edx, [ebp-56]
+		push dword[ebp+20]
+		push dword[ebp+24]
+		push 0
+		push edx
+		push ecx
+		push eax
+		lea edx, [ebp-44]
+		push edx
+		push COLLIDER_NEG_Y_NORMAL
+		push dword[ebp+12]
+		call raycastHelper
+		add esp, 36
+		cmp eax, 0
+		je _raycast_not_neg_y
+		
+		;save the raycast hit
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], COLLISION_POS_Y
+		mov ecx, dword[ebp+8]
+		mov dword[eax+56], ecx
+		
+		jmp _raycast_done
+	_raycast_not_neg_y:
+	
+	;pos y
+		;point on plane
+		mov eax, dword[ebp-16]
+		mov dword[ebp-56], eax
+		mov eax, dword[ebp-28]
+		mov dword[ebp-52], eax
+		mov eax, dword[ebp-8]
+		mov dword[ebp-48], eax
+		
+		lea eax, [ebp-16]
+		lea ecx, [ebp-32]
+		lea edx, [ebp-56]
+		push dword[ebp+20]
+		push dword[ebp+24]
+		push 0
+		push edx
+		push ecx
+		push eax
+		lea edx, [ebp-44]
+		push edx
+		push COLLIDER_POS_Y_NORMAL
+		push dword[ebp+12]
+		call raycastHelper
+		add esp, 36
+		cmp eax, 0
+		je _raycast_not_pos_y
+		
+		;save the raycast hit
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], COLLISION_NEG_Y
+		mov ecx, dword[ebp+8]
+		mov dword[eax+56], ecx
+		
+		jmp _raycast_done
+	_raycast_not_pos_y:
+	
+	;neg z
+		;point on plane
+		mov eax, dword[ebp-16]
+		mov dword[ebp-56], eax
+		mov eax, dword[ebp-12]
+		mov dword[ebp-52], eax
+		mov eax, dword[ebp-8]
+		mov dword[ebp-48], eax
+		
+		lea eax, [ebp-16]
+		lea ecx, [ebp-32]
+		lea edx, [ebp-56]
+		push dword[ebp+20]
+		push dword[ebp+24]
+		push 0
+		push edx
+		push ecx
+		push eax
+		lea edx, [ebp-44]
+		push edx
+		push COLLIDER_NEG_Z_NORMAL
+		push dword[ebp+12]
+		call raycastHelper
+		add esp, 36
+		cmp eax, 0
+		je _raycast_not_neg_z
+		
+		;save the raycast hit
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], COLLISION_POS_Z
+		mov ecx, dword[ebp+8]
+		mov dword[eax+56], ecx
+		
+		jmp _raycast_done
+	_raycast_not_neg_z:
+	
+	;pos z
+		;point on plane
+		mov eax, dword[ebp-16]
+		mov dword[ebp-56], eax
+		mov eax, dword[ebp-12]
+		mov dword[ebp-52], eax
+		mov eax, dword[ebp-24]
+		mov dword[ebp-48], eax
+		
+		lea eax, [ebp-16]
+		lea ecx, [ebp-32]
+		lea edx, [ebp-56]
+		push dword[ebp+20]
+		push dword[ebp+24]
+		push 0
+		push edx
+		push ecx
+		push eax
+		lea edx, [ebp-44]
+		push edx
+		push COLLIDER_POS_Z_NORMAL
+		push dword[ebp+12]
+		call raycastHelper
+		add esp, 36
+		cmp eax, 0
+		je _raycast_not_pos_z
+		
+		;save the raycast hit
+		mov eax, dword[ebp+24]
+		mov dword[eax+48], COLLISION_NEG_Z
+		mov ecx, dword[ebp+8]
+		mov dword[eax+56], ecx
+		
+		jmp _raycast_done
+	_raycast_not_pos_z:
+	
+	_raycast_no_hit:
+	;set the result buffer's values
+	mov eax, dword[ebp+24]
+	mov dword[eax+48], 0
+	mov dword[eax+56], 0
+	
+	_raycast_done:
+	mov esp, ebp
+	pop ebp
+	ret
+	
+;int raycastHelper(
+;	vec3* position,	
+;	vec3* normalVector,
+;	vec3* normalizedDirection,
+;	vec3* lowerbound,
+;	vec3* upperBound,
+;	vec3* pointOnPlane
+;	int fixAxis	//0: x, 1: y, 2: z
+;	collider* resultBuffer		//only sets the position in the result buffer
+;	float distance
+;	)
+;returns 0 if no hit
+raycastHelper:	
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;<dir;normal>
+	sub esp, 4		;<PoP-pos;normal>
+	sub esp, 4		;t=<PoP-pos;normal>/<dir;normal>
+	sub esp, 12		;intersection point
+	
+	;check if the ray gives backshots to the plane (and calculate <dir;normal> )
+	push dword[ebp+16]
+	push dword[ebp+12]
+	call vec3_dot
+	fstp dword[ebp-4]
+	mov eax, dword[ebp-4]
+	add esp, 8
+	and eax, 0x80000000
+	cmp eax, 0
+	je _raycastHelper_no_hit
+	
+	;calculate <PoP-pos; normal>
+	sub esp, 12
+	mov eax, esp
+	push dword[ebp+8]
+	push dword[ebp+28]
+	push eax
+	call vec3_sub
+	mov eax, dword[ebp+12]
+	mov dword[esp+4], eax
+	call vec3_dot
+	fstp dword[ebp-8]
+	add esp, 24
+	
+	;calculate t and check if it is in [0, distance]
+	movss xmm0, dword[ebp-8]
+	movss xmm1, dword[ebp-4]
+	divss xmm0, xmm1
+	movss dword[ebp-12], xmm0
+	mov eax, dword[ebp-12]
+	and eax, 0x80000000		;is t negative
+	cmp eax, 0
+	jne _raycastHelper_no_hit
+	movss xmm0, dword[ebp-12]
+	ucomiss xmm0, dword[ebp+40]
+	ja _raycastHelper_no_hit
+
+	
+	;calculate intersection point
+	lea eax,[ebp-24]
+	push dword[ebp-12]
+	push dword[ebp+16]
+	push eax
+	call vec3_scale
+	mov eax, dword[ebp+8]
+	mov dword[esp+8], eax
+	lea eax, [ebp-24]
+	mov dword[esp+4], eax
+	call vec3_add
+	add esp, 12
+	
+	
+	;check if legit
+	mov eax, dword[ebp+20]		;lower bound in eax
+	mov ecx, dword[ebp+24]		;upper bound in ecx
+	mov edx, dword[ebp+32]		;fix axis in edx
+	
+	cmp edx, 0
+	je _raycastHelper_skip_x_axis_check
+		movss xmm0, dword[ebp-24]
+		ucomiss xmm0, dword[eax]
+		jb _raycastHelper_no_hit
+		ucomiss xmm0, dword[ecx]
+		ja _raycastHelper_no_hit
+	_raycastHelper_skip_x_axis_check:
+	
+	cmp edx, 1
+	je _raycastHelper_skip_y_axis_check
+		movss xmm0, dword[ebp-20]
+		ucomiss xmm0, dword[eax+4]
+		jb _raycastHelper_no_hit
+		ucomiss xmm0, dword[ecx+4]
+		ja _raycastHelper_no_hit
+	_raycastHelper_skip_y_axis_check:
+	
+	cmp edx, 2
+	je _raycastHelper_skip_z_axis_check
+		movss xmm0, dword[ebp-16]
+		ucomiss xmm0, dword[eax+8]
+		jb _raycastHelper_no_hit
+		ucomiss xmm0, dword[ecx+8]
+		ja _raycastHelper_no_hit
+	_raycastHelper_skip_z_axis_check:
+	
+	
+	;copy the hit point into the result buffer
+	mov eax, dword[ebp+36]		;result buffer in eax
+	mov ecx, dword[ebp-24]
+	mov dword[eax+24], ecx
+	mov ecx, dword[ebp-20]
+	mov dword[eax+28], ecx
+	mov ecx, dword[ebp-16]
+	mov dword[eax+32], ecx
+	
+	mov eax, 69
+	
+	jmp _raycastHelper_done
+	_raycastHelper_no_hit:
+		xor eax, eax
+	_raycastHelper_done:
 	mov esp, ebp
 	pop ebp
 	ret

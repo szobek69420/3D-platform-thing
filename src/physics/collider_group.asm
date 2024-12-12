@@ -238,17 +238,17 @@ colliderGroup_collide:
 	je _collide_resolve_collision_end
 	sub esp, 4			;prealloc function parameters
 	push dword[ebp+24]
-_collide_resolve_collision_start:
-	mov eax, dword[edi]
-	mov dword[esp+4], eax
-	call collider_resolveCollision
-	cmp eax, 0
-	je _collide_resolve_collision_end
-	add edi, 4
-	dec esi
-	cmp esi, 0
-	jg _collide_resolve_collision_start
-_collide_resolve_collision_end:
+	_collide_resolve_collision_start:
+		mov eax, dword[edi]
+		mov dword[esp+4], eax
+		call collider_resolveCollision
+		cmp eax, 0
+		je _collide_resolve_collision_end
+		add edi, 4
+		dec esi
+		cmp esi, 0
+		jg _collide_resolve_collision_start
+	_collide_resolve_collision_end:
 	
 
 	;free copied array
