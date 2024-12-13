@@ -2,12 +2,15 @@
 ;struct player{
 ;	Camera* cum;
 ;	Collider* collider;
+;	chomkManager* cm;
 ;}
 
 section .rodata
 	init_error_message db "Player couldn't be created lol",10,0
 	
 	raycast_hit_message db "raycast hit",10,0
+	
+	print_block_info db "chomkX: %d, chomkZ: %d, blockX: %d, blockY: %d, blockZ: %d",10,0
 	
 	HORIZONTAL_LOOK_SENSITIVITY dd 120.0
 	VERTICAL_LOOK_SENSITIVITY dd 120.0
@@ -23,6 +26,7 @@ section .rodata
 	
 	ZERO dd 0.0
 	ONE dd 1.0
+	HALF dd 0.5
 	
 	REACH dd 4.0
 	
@@ -41,6 +45,7 @@ section .text
 	extern free
 	extern memcpy
 	extern input_isKeyHeld
+	extern input_isKeyPressed
 	extern camera_forward
 	extern camera_right
 	extern vec3_print
@@ -55,11 +60,15 @@ section .text
 	
 	extern physics_staticRaycast
 	
+	extern vector_push_back
+	
 	extern KEY_W
 	extern KEY_A
 	extern KEY_S
 	extern KEY_D
 	extern KEY_C
+	extern KEY_Q
+	extern KEY_E
 	extern KEY_SPACE
 	extern KEY_SHIFT
 	extern KEY_LEFT
@@ -67,11 +76,18 @@ section .text
 	extern KEY_UP
 	extern KEY_DOWN
 	
+	extern COLLISION_POS_X
+	extern COLLISION_NEG_X
+	extern COLLISION_POS_Y
 	extern COLLISION_NEG_Y
+	extern COLLISION_POS_Z
+	extern COLLISION_NEG_Z
+	
+	extern BLOCK_COLLIDER
 	
 	extern raycast_knob
 	
-	global player_init		;player* player_init(Camera* cum)
+	global player_init		;player* player_init(Camera* cum, chomkManager* cm)
 	global player_destroy		;void player_destroy()
 	
 	global player_update		;void player_update(player* player, float deltaTimeInSex)
@@ -82,7 +98,7 @@ player_init:
 	
 	sub esp, 4		;player
 	
-	push 8
+	push 12
 	call malloc
 	mov dword[ebp-4], eax
 	add esp, 4
@@ -101,6 +117,11 @@ _init_no_error:
 	mov eax, dword[ebp-4]
 	mov ecx, dword[ebp+8]
 	mov dword[eax], ecx		;save cum
+	
+	;save chomk manager
+	mov eax, dword[ebp-4]
+	mov ecx, dword[ebp+12]
+	mov dword[eax+8], ecx	
 	
 	;make collider
 	push COLLIDER_UPPER_BOUND
@@ -467,6 +488,8 @@ gaycast:	;void gaycast(player* player)
 	
 	sub esp, 12		;look direction
 	sub esp, 4		;raycast result
+	sub esp, 12		;block position
+	sub esp, 8		;chomk position
 	
 	mov eax, dword[ebp+8]
 	lea ecx, [ebp-12]
@@ -498,6 +521,143 @@ gaycast:	;void gaycast(player* player)
 		push eax
 		call memcpy
 		add esp, 12
+		
+		;calculate block position
+		mov eax, dword[ebp-16]
+		mov ecx, dword[eax+24]
+		mov dword[ebp-28], ecx
+		mov ecx, dword[eax+28]
+		mov dword[ebp-24], ecx
+		mov ecx, dword[eax+32]
+		mov dword[ebp-20], ecx
+		
+		mov eax, dword[eax+48]
+		movss xmm1, dword[HALF]
+		
+		mov ecx, eax
+		and ecx, COLLISION_NEG_X
+		cmp ecx, 0
+		jne _gaycast_neg_x
+		mov ecx, eax
+		and ecx, COLLISION_POS_X
+		cmp ecx, 0
+		jne _gaycast_pos_x
+		mov ecx, eax
+		and ecx, COLLISION_NEG_Y
+		cmp ecx, 0
+		jne _gaycast_neg_y
+		mov ecx, eax
+		and ecx, COLLISION_POS_Y
+		cmp ecx, 0
+		jne _gaycast_pos_y
+		mov ecx, eax
+		and ecx, COLLISION_NEG_Z
+		cmp ecx, 0
+		jne _gaycast_neg_z
+		mov ecx, eax
+		and ecx, COLLISION_POS_Z
+		cmp ecx, 0
+		jne _gaycast_pos_z
+		jmp _gaycast_block_pos_calc_done
+		_gaycast_neg_x:
+			movss xmm0, dword[ebp-28]
+			subss xmm0, xmm1
+			movss dword[ebp-28], xmm0
+			jmp _gaycast_block_pos_calc_done
+		_gaycast_pos_x:
+			movss xmm0, dword[ebp-28]
+			addss xmm0, xmm1
+			movss dword[ebp-28], xmm0
+			jmp _gaycast_block_pos_calc_done
+		_gaycast_neg_y:
+			movss xmm0, dword[ebp-24]
+			subss xmm0, xmm1
+			movss dword[ebp-24], xmm0
+			jmp _gaycast_block_pos_calc_done
+		_gaycast_pos_y:
+			movss xmm0, dword[ebp-24]
+			addss xmm0, xmm1
+			movss dword[ebp-24], xmm0
+			jmp _gaycast_block_pos_calc_done
+		_gaycast_neg_z:
+			movss xmm0, dword[ebp-20]
+			subss xmm0, xmm1
+			movss dword[ebp-24], xmm0
+			jmp _gaycast_block_pos_calc_done
+		_gaycast_pos_z:
+			movss xmm0, dword[ebp-20]
+			addss xmm0, xmm1
+			movss dword[ebp-24], xmm0
+			jmp _gaycast_block_pos_calc_done
+		_gaycast_block_pos_calc_done:
+		
+		;convert block pos to int
+		fld dword[ebp-28]
+		fistp dword[ebp-28]
+		fld dword[ebp-24]
+		fistp dword[ebp-24]
+		fld dword[ebp-20]
+		fistp dword[ebp-20]
+		
+		;block x and chomk x
+		mov eax, dword[ebp-28]
+		sar eax, 4
+		mov dword[ebp-36], eax
+		mov eax, dword[ebp-28]
+		and eax, 0x000000F
+		mov dword[ebp-28], eax
+		
+		;block z and chomk z
+		mov eax, dword[ebp-20]
+		sar eax, 4
+		mov dword[ebp-32], eax
+		mov eax, dword[ebp-20]
+		and eax, 0x000000F
+		mov dword[ebp-20], eax
+
+		
+		;check if a block is to be destroyed
+		push KEY_Q
+		call input_isKeyPressed
+		add esp, 4
+		cmp eax, 0
+		je _gaycast_no_block_break
+		
+		
+		mov eax, dword[ebp-16]		;raycast result in eax
+		mov ecx, dword[eax+56]
+		mov ecx, dword[ecx+52]
+		cmp ecx, BLOCK_COLLIDER
+		jne _gaycast_no_block_break
+			;add changed block to the registry
+			mov edx, dword[ebp+8]
+			mov edx, dword[edx+8]		;cm in edx
+			sub esp, 4
+			mov byte[esp+3], 0		;air
+			mov cl, byte[ebp-20]
+			mov byte[esp+2], cl
+			mov cl, byte[ebp-24]
+			mov byte[esp+1], cl
+			mov cl, byte[ebp-28]
+			mov byte[esp], cl
+			push dword[ebp-32]
+			push dword[ebp-36]
+			lea ecx, [edx+16]
+			push ecx
+			call vector_push_back
+			add esp, 16
+			
+			;create a pendig chunk update
+			mov edx, dword[ebp+8]
+			mov edx, dword[edx+8]
+			add edx, 32
+			
+			push dword[ebp-32]
+			push dword[ebp-36]
+			push edx
+			call vector_push_back
+			add esp, 12
+		_gaycast_no_block_break:
 		
 		;destroy the returned collider
 		push dword[ebp-16]

@@ -18,6 +18,10 @@ global BLOCK_GRASS
 global BLOCK_DIRT
 global BLOCK_STONE
 
+
+BLOCK_COLLIDER equ 0xF0F0F0F0
+global BLOCK_COLLIDER		;the collider info for block colliders
+
 section .rodata
 
 	;block colours (argb)

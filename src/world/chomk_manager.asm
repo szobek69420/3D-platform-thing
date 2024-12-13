@@ -100,21 +100,6 @@ chomkManager_create:
 	call vector_init
 	add esp, 8
 	
-	
-	mov eax, dword[ebp-4]
-	add eax, 16
-	sub esp, 4
-	mov byte[esp+3], 3
-	mov byte[esp+2], 10
-	mov byte[esp+1], 40
-	mov byte[esp], 10
-	push 0
-	push 0
-	push eax
-	call vector_push_back
-	add esp, 16
-	
-	
 	;init pending updates vector
 	mov eax, dword[ebp-4]
 	add eax, 32
@@ -346,6 +331,62 @@ chomkManager_generate:
 	mov dword[ebp-8], eax
 	
 	
+	;process pending update
+	mov ebx, dword[ebp+20]	;cm in ebx
+	mov eax, dword[ebx+32]
+	cmp eax, 0
+	je _generate_no_updates_pending
+		;get the reloaded chunk
+		sub esp, 4		;chomkZ
+		sub esp, 4		;chomkX
+		mov ecx, dword[ebx+44]
+		mov eax, dword[ecx]
+		mov dword[esp], eax
+		mov eax, dword[ecx+4]
+		mov dword[esp+4], eax
+		
+		;search for it in the loaded chomks
+		mov esi, dword[ebx]		;loaded chomk count in esi
+		mov edi, dword[ebx+12]		;loaded chomks in edi
+		cmp esi, 0
+		je _generate_reload_unload_loop_end
+		_generate_reload_unload_loop_start:
+			mov eax, dword[edi]
+			
+			mov ecx, dword[eax]
+			cmp ecx, dword[esp]
+			jne _generate_reload_unload_loop_continue
+			mov ecx, dword[eax+4]
+			cmp ecx, dword[esp+4]
+			jne _generate_reload_unload_loop_continue
+			
+			push dword[edi]
+			push ebx
+			call chomkManager_removeChomk
+			add esp, 8
+			jmp _generate_reload_unload_loop_end
+			
+			_generate_reload_unload_loop_continue:
+			add edi, 4
+			dec esi
+			cmp esi, 0
+			jg _generate_reload_unload_loop_start
+		_generate_reload_unload_loop_end:
+		
+		push ebx
+		call chomkManager_addChomk
+		add esp, 4
+		
+		lea eax, [ebx+32]
+		push 0
+		push eax
+		call vector_remove_at
+		add esp, 8
+		
+		add esp, 8
+		jmp _generate_skip_chunk_load
+	_generate_no_updates_pending:
+	
 	;search for loadable chunks
 	mov ebx, dword[ebp+20]	;cm in ebx
 	xor esi, esi		;search ring radius
@@ -518,6 +559,8 @@ chomkManager_generate:
 		cmp esi, 0
 		jg _generate_unload_loop_start
 	_generate_unload_loop_end:
+	
+	_generate_skip_chunk_load:
 	
 
 	push ebx

@@ -58,6 +58,7 @@ section .text
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
 	extern BLOCK_GRASS
+	extern BLOCK_COLLIDER
 	
 	extern BLOCK_COLOUR_INDEX
 	extern BLOCK_INDICES
@@ -537,6 +538,8 @@ _generateChomk_mesh_y_loop_start:
 				push edx
 				call collider_createCollider
 				add esp, 40
+				
+				mov dword[eax+52], BLOCK_COLLIDER
 				
 				lea edx, [ebp-100]
 				push eax

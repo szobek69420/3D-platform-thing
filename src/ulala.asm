@@ -107,7 +107,14 @@ _start:
 	call camera_init
 	add esp, 4
 	
+	;create chomk manager
+	push 2
+	call chomkManager_create
+	mov dword[pchomk_manager], eax
+	add esp, 4
+	
 	;create player
+	push dword[pchomk_manager]
 	push camera
 	call player_init
 	mov dword[pplayer], eax
@@ -118,12 +125,6 @@ _start:
 	mov eax, dword[eax+4]
 	push eax
 	call physics_registerDynamicCollider
-	add esp, 4
-	
-	;create chomk manager
-	push 2
-	call chomkManager_create
-	mov dword[pchomk_manager], eax
 	add esp, 4
 	
 	;create raycast knob
