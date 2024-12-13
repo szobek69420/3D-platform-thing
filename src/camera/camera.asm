@@ -4,7 +4,8 @@
 ;	float pitchInDegrees, yawInDegrees;	;12
 ;	float nearClip, farClip;		;20
 ;	float vFovInDegrees, aspectXY;		;28
-;}						;36 bytes overall
+;	float (near*far), (far-near), (1/(far-near)	;36, helper variables for the depth buffer relinearization. they refresh on camera_projection call
+;}						;48 bytes overall
 
 section .rodata
 	DEG2RAD dd 0.017453293
@@ -15,6 +16,8 @@ section .rodata
 	DEFAULT_ASPECT_XY dd 1.0
 	
 	WORLD_UP dd 0.0, 1.0, 0.0
+	
+	ONE dd 1.0
 
 section .text
 	extern printf
@@ -101,6 +104,19 @@ camera_projection:
 	mov eax, dword[esp+4]		;camera in eax
 	mov ecx, dword[esp+8]		;buffer in ecx
 	
+	;calc (far-near) and far*near
+	movss xmm0, dword[eax+20]	;near in xmm0
+	movss xmm1, dword[eax+24]	;far in xmm1
+	movss xmm2, xmm1
+	subss xmm2, xmm0
+	movss dword[eax+40], xmm2
+	movss xmm3, dword[ONE]
+	divss xmm3, xmm2
+	movss dword[eax+44], xmm3
+	mulss xmm0, xmm1
+	movss dword[eax+36], xmm0
+	
+	;calc matrix
 	push dword[eax+24]
 	push dword[eax+20]
 	push dword[eax+32]

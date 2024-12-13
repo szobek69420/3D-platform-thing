@@ -85,7 +85,7 @@ section .text
 	
 	global renderable_destroy		;void renderable_destroy(renderable* renderable)
 	
-	global renderable_render		;void renderable_render(renderable* renderable, ScreenInfo* display, mat4* pv)
+	global renderable_render		;void renderable_render(renderable* renderable, ScreenInfo* display, mat4* pv, camera* cum)
 	global renderable_renderWithFog		;void renderable_renderWithFog(renderable* renderable, ScreenInfo* display, mat4* pv, camera* cum)
 	
 	global renderable_modelMatrix		;void renderable_modelMatrix(renderable* renderable, mat4* buffer)
@@ -252,33 +252,36 @@ renderable_destroy:
 	ret
 	
 renderable_render:
-	sub esp, 16
-	mov dword[esp+12], 0
-	mov eax, dword[esp+28]
+	sub esp, 20
+	mov dword[esp+16], 0
+	mov eax, dword[esp+36]
+	mov dword[esp+12], eax
+	mov eax, dword[esp+32]
 	mov dword[esp+8], eax
-	mov eax, dword[esp+24]
+	mov eax, dword[esp+28]
 	mov dword[esp+4], eax
-	mov eax, dword[esp+20]
+	mov eax, dword[esp+24]
 	mov dword[esp], eax
 	call renderable_render_internal
-	add esp, 16
+	add esp, 20
 	ret
 	
 renderable_renderWithFog:
-	sub esp, 16
-	mov eax, dword[esp+32]
+	sub esp, 20
+	mov dword[esp+16], 69
+	mov eax, dword[esp+36]
 	mov dword[esp+12], eax
-	mov eax, dword[esp+28]
+	mov eax, dword[esp+32]
 	mov dword[esp+8], eax
-	mov eax, dword[esp+24]
+	mov eax, dword[esp+28]
 	mov dword[esp+4], eax
-	mov eax, dword[esp+20]
+	mov eax, dword[esp+24]
 	mov dword[esp], eax
 	call renderable_render_internal
-	add esp, 16
+	add esp, 20
 	ret
 	
-renderable_render_internal:		;void renderable_render_internal(renderable* renderable, ScreenInfo* display, mat4* pv, camera* cum)  //cum==NULL, ha nincs kod
+renderable_render_internal:		;void renderable_render_internal(renderable* renderable, ScreenInfo* display, mat4* pv, camera* cum, int fog)
 	push ebp
 	push esi
 	push edi
@@ -357,7 +360,10 @@ renderable_render_internal:		;void renderable_render_internal(renderable* render
 		
 		movss xmm1, dword[edi+8]
 		mulss xmm1, xmm0
+		mulss xmm1, xmm1
+		mulss xmm1, xmm1		;these xmm1*xmm1 are there to flatten the depth change curve
 		movss dword[edi+8], xmm1
+		
 		
 		add esi, 12
 		add edi, 16
@@ -367,7 +373,8 @@ renderable_render_internal:		;void renderable_render_internal(renderable* render
 	
 	;calculate vertex distances if fog is enables	
 	mov eax, dword[ebp+32]
-	cmp eax, 0
+	mov ecx, dword[ebp+36]
+	cmp ecx, 0
 	je _render_no_fog_1
 
 		;alloc space for temp distance
@@ -478,7 +485,8 @@ renderable_render_internal:		;void renderable_render_internal(renderable* render
 	mov edi, dword[ebx+44]		;colour buffer in edi
 	mov ebx, dword[ebx+32]		;face count in ebx
 	mov eax, dword[ebp+32]
-	cmp eax, 0
+	mov ecx, dword[ebp+36]
+	cmp ecx, 0
 	je _render_no_fog_2
 		mov edi, dword[ebp-76]
 	_render_no_fog_2:
@@ -522,7 +530,7 @@ renderable_render_internal:		;void renderable_render_internal(renderable* render
 	add esp, 4
 	
 	;free temp distance buffer
-	mov eax, dword[ebp+32]
+	mov eax, dword[ebp+36]
 	cmp eax, 0
 	je _render_no_fog_3
 		push dword[ebp-72]
@@ -795,4 +803,23 @@ _print_colours_loop_start:
 	pop edi
 	pop esi
 	pop ebp
+	ret
+	
+adjust_depth:		;void adjust_depth(float* zvalue, camera* cum), assumes that w==0
+	mov eax, dword[esp+8]		;camera in eax
+	mov ecx, dword[esp+4]		;float* in ecx
+	
+	movss xmm2, dword[eax+36]	;far*near in xmm2
+	movss xmm3, dword[eax+40]	;far-near in xmm3
+	
+	mulss xmm3, dword[ecx]
+	subss xmm3, dword[eax+24]
+	
+	divss xmm2, xmm3
+	
+	subss xmm2, dword[eax+20]
+	mulss xmm2, dword[eax+44]
+	
+	movss dword[ecx], xmm2
+
 	ret

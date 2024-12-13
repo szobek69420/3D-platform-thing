@@ -14,7 +14,7 @@ section .rodata
 section .bss
 	window resb 60
 	event_buffer resb 16
-	camera resb 36
+	camera resb 48
 	pplayer resb 4	
 	pv_matrix resb 64
 	pchomk_manager resb 4
@@ -142,111 +142,113 @@ _start:
 	call clock
 	mov dword[lastFrame], eax
 	
-_game_loop:
-	;calculate fps start
-	call clock
-	mov dword[frameHelper], eax
-	mov ecx, eax
-	sub eax, dword[lastFrame]
-	mov dword[lastFrame], ecx
-	mov dword[frameHelper], eax
-	fild dword[frameHelper]
-	fld dword[ONE_PER_CLOCKS_PER_SECOND]
-	fmulp
-	fstp dword[deltaTime]
-	
-	movss xmm0, dword[lastSecond]
-	movss xmm1, dword[deltaTime]
-	addss xmm0, xmm1
-	movss dword[lastSecond], xmm0
-	movss xmm1, dword[ONE]
-	ucomiss xmm0, xmm1
-	jb _skip_fps_print
-	
-	push dword[frameCount]
-	push print_frame_count
-	call printf
-	add esp, 8
-	mov dword[frameCount], 0
-	mov dword[lastSecond], 0
-_skip_fps_print:
-	inc dword[frameCount]
-	;calculate fps end
+	_game_loop:
+		;calculate fps start
+		call clock
+		mov dword[frameHelper], eax
+		mov ecx, eax
+		sub eax, dword[lastFrame]
+		mov dword[lastFrame], ecx
+		mov dword[frameHelper], eax
+		fild dword[frameHelper]
+		fld dword[ONE_PER_CLOCKS_PER_SECOND]
+		fmulp
+		fstp dword[deltaTime]
+		
+		movss xmm0, dword[lastSecond]
+		movss xmm1, dword[deltaTime]
+		addss xmm0, xmm1
+		movss dword[lastSecond], xmm0
+		movss xmm1, dword[ONE]
+		ucomiss xmm0, xmm1
+		jb _skip_fps_print
+			
+			push dword[frameCount]
+			push print_frame_count
+			call printf
+			add esp, 8
+			mov dword[frameCount], 0
+			mov dword[lastSecond], 0
+		_skip_fps_print:
+		inc dword[frameCount]
+		;calculate fps end
 
-	call input_update
-	call processEvents
-	
-	push dword[deltaTime]
-	push dword[pplayer]
-	call player_update
-	add esp, 8
-	
-	;physics update
-	push ebx		;save ebx
-	movss xmm0, dword[deltaTime]
-	mulss xmm0, dword[TENTH]
-	sub esp, 4
-	movss dword[esp], xmm0
-	mov ebx, 10
-	_physics_update_loop_start:	
-		call physics_step
-		dec ebx
-		cmp ebx, 0
-		jg _physics_update_loop_start
-	pop ebx			;restore ebx
-	add esp, 4
-	
-	;generate chomks
-	sub esp, 8
-	mov eax, dword[pplayer]
-	mov eax, dword[eax]
-	mov ecx, dword[eax]
-	mov dword[esp], ecx
-	mov ecx, dword[eax+8]
-	mov dword[esp+4], ecx
-	fld dword[esp]
-	fistp dword[esp]
-	fld dword[esp+4]
-	fistp dword[esp+4]
-	push dword[pchomk_manager]
-	call chomkManager_generate
-	add esp, 12
-	
-	;clear buffer
-	push 0xFF00BFFF
-	push window
-	call window_clearDrawBuffer
-	add esp, 8
-	
-	;calculate pv matrix
-	push pv_matrix
-	push camera
-	call camera_viewProjection
-	add esp, 8
-	
-	;render raycast knob
-	push pv_matrix
-	push window
-	push raycast_knob
-	call renderable_render
-	add esp, 12
-	
-	;render chomks
-	mov eax, dword[pplayer]
-	push dword[eax]
-	push pv_matrix
-	push window
-	push dword[pchomk_manager]
-	call chomkManager_render
-	add esp, 16
-	
-	
-	;draw buffer
-	push window
-	call window_showFrame
-	add esp, 4
-	
-	jmp _game_loop
+		call input_update
+		call processEvents
+		
+		push dword[deltaTime]
+		push dword[pplayer]
+		call player_update
+		add esp, 8
+		
+		;physics update
+		push ebx		;save ebx
+		movss xmm0, dword[deltaTime]
+		mulss xmm0, dword[TENTH]
+		sub esp, 4
+		movss dword[esp], xmm0
+		mov ebx, 10
+		_physics_update_loop_start:	
+			call physics_step
+			dec ebx
+			cmp ebx, 0
+			jg _physics_update_loop_start
+		pop ebx			;restore ebx
+		add esp, 4
+		
+		;generate chomks
+		sub esp, 8
+		mov eax, dword[pplayer]
+		mov eax, dword[eax]
+		mov ecx, dword[eax]
+		mov dword[esp], ecx
+		mov ecx, dword[eax+8]
+		mov dword[esp+4], ecx
+		fld dword[esp]
+		fistp dword[esp]
+		fld dword[esp+4]
+		fistp dword[esp+4]
+		push dword[pchomk_manager]
+		call chomkManager_generate
+		add esp, 12
+		
+		;clear buffer
+		push 0xFF00BFFF
+		push window
+		call window_clearDrawBuffer
+		add esp, 8
+		
+		;calculate pv matrix
+		push pv_matrix
+		push camera
+		call camera_viewProjection
+		add esp, 8
+		
+		;render raycast knob
+		mov eax, dword[pplayer]
+		push dword[eax]
+		push pv_matrix
+		push window
+		push raycast_knob
+		call renderable_render
+		add esp, 12
+		
+		;render chomks
+		mov eax, dword[pplayer]
+		push dword[eax]
+		push pv_matrix
+		push window
+		push dword[pchomk_manager]
+		call chomkManager_render
+		add esp, 16
+		
+		
+		;draw buffer
+		push window
+		call window_showFrame
+		add esp, 4
+		
+		jmp _game_loop
 	
 	;delete raycast knob
 	push raycast_knob

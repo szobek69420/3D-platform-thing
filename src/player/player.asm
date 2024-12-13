@@ -27,6 +27,7 @@ section .rodata
 	ZERO dd 0.0
 	ONE dd 1.0
 	HALF dd 0.5
+	MINUS_HALF dd -0.5
 	
 	MAX_PITCH dd 89.5
 	MIN_PITCH dd -89.5
@@ -87,6 +88,8 @@ section .text
 	extern COLLISION_NEG_Z
 	
 	extern BLOCK_COLLIDER
+	extern BLOCK_AIR
+	extern BLOCK_STONE
 	
 	extern raycast_knob
 	
@@ -503,6 +506,8 @@ gaycast:	;void gaycast(player* player)
 	sub esp, 4		;raycast result
 	sub esp, 12		;block position
 	sub esp, 8		;chomk position
+	sub esp, 4		;changed block type
+	push 0			;change type	(0: no change, 1: break, -1: place)
 	
 	mov eax, dword[ebp+8]
 	lea ecx, [ebp-12]
@@ -535,6 +540,45 @@ gaycast:	;void gaycast(player* player)
 		call memcpy
 		add esp, 12
 		
+		;check if block is broken
+		push KEY_Q
+		call input_isKeyPressed
+		add esp, 4
+		cmp eax, 0
+		je _gaycast_no_block_break
+		
+		mov eax, dword[ebp-16]		;raycast result in eax
+		mov ecx, dword[eax+56]
+		mov ecx, dword[ecx+52]
+		cmp ecx, BLOCK_COLLIDER
+		jne _gaycast_no_block_break
+			mov dword[ebp-40], BLOCK_AIR
+			mov dword[ebp-44], 1
+			jmp _gaycast_no_block_place
+		_gaycast_no_block_break:
+		
+		;check if block is placed
+		push KEY_E
+		call input_isKeyPressed
+		add esp, 4
+		cmp eax, 0
+		je _gaycast_no_block_place
+		
+		mov eax, dword[ebp-16]		;raycast result in eax
+		mov ecx, dword[eax+56]
+		mov ecx, dword[ecx+52]
+		cmp ecx, BLOCK_COLLIDER
+		jne _gaycast_no_block_place
+			mov dword[ebp-40], BLOCK_STONE
+			mov dword[ebp-44], -1
+		_gaycast_no_block_place:
+		
+		;check if something happened
+		mov eax, dword[ebp-44]
+		cmp eax, 0
+		je _gaycast_nothing_changed
+		
+		
 		;calculate block position
 		mov eax, dword[ebp-16]
 		mov ecx, dword[eax+24]
@@ -545,7 +589,13 @@ gaycast:	;void gaycast(player* player)
 		mov dword[ebp-20], ecx
 		
 		mov eax, dword[eax+48]
+		
 		movss xmm1, dword[HALF]
+		mov ecx, dword[ebp-44]
+		cmp ecx, 1
+		je _gaycast_block_break_position_calculator
+			movss xmm1, dword[MINUS_HALF]
+		_gaycast_block_break_position_calculator:
 		
 		mov ecx, eax
 		and ecx, COLLISION_NEG_X
@@ -627,106 +677,94 @@ gaycast:	;void gaycast(player* player)
 		mov eax, dword[ebp-20]
 		and eax, 0x000000F
 		mov dword[ebp-20], eax
-
 		
-		;check if a block is to be destroyed
-		push KEY_Q
-		call input_isKeyPressed
-		add esp, 4
+		;add changed block to the registry
+		mov edx, dword[ebp+8]
+		mov edx, dword[edx+8]		;cm in edx
+		sub esp, 4
+		mov eax, dword[ebp-40]
+		mov byte[esp+3], al
+		mov cl, byte[ebp-20]
+		mov byte[esp+2], cl
+		mov cl, byte[ebp-24]
+		mov byte[esp+1], cl
+		mov cl, byte[ebp-28]
+		mov byte[esp], cl
+		push dword[ebp-32]
+		push dword[ebp-36]
+		lea ecx, [edx+16]
+		push ecx
+		call vector_push_back
+		add esp, 16
+			
+		;create a pendig chunk update
+		mov edx, dword[ebp+8]
+		mov edx, dword[edx+8]
+		add edx, 32
+			
+		push dword[ebp-32]
+		push dword[ebp-36]
+		push edx
+		call vector_push_back
+		add esp, 12
+			
+		;check if neighbours also need to be reloaded
+		mov edx, dword[ebp+8]
+		mov edx, dword[edx+8]
+		add edx, 32
+		push edx
+			
+		mov edx, dword[esp]
+		mov eax, dword[ebp-28]
 		cmp eax, 0
-		je _gaycast_no_block_break
-		
-		
-		mov eax, dword[ebp-16]		;raycast result in eax
-		mov ecx, dword[eax+56]
-		mov ecx, dword[ecx+52]
-		cmp ecx, BLOCK_COLLIDER
-		jne _gaycast_no_block_break
-			;add changed block to the registry
-			mov edx, dword[ebp+8]
-			mov edx, dword[edx+8]		;cm in edx
-			sub esp, 4
-			mov byte[esp+3], 0		;air
-			mov cl, byte[ebp-20]
-			mov byte[esp+2], cl
-			mov cl, byte[ebp-24]
-			mov byte[esp+1], cl
-			mov cl, byte[ebp-28]
-			mov byte[esp], cl
+		jne _gaycast_no_neighbour_neg_x
 			push dword[ebp-32]
 			push dword[ebp-36]
-			lea ecx, [edx+16]
-			push ecx
+			dec dword[esp]
+			push edx
 			call vector_push_back
-			add esp, 16
-			
-			;create a pendig chunk update
-			mov edx, dword[ebp+8]
-			mov edx, dword[edx+8]
-			add edx, 32
-			
+			add esp, 12
+		_gaycast_no_neighbour_neg_x:
+		
+		mov edx, dword[esp]
+		mov eax, dword[ebp-28]
+		cmp eax, 15
+		jne _gaycast_no_neighbour_pos_x
 			push dword[ebp-32]
+			push dword[ebp-36]
+			inc dword[esp]
+			push edx
+			call vector_push_back
+			add esp, 12
+		_gaycast_no_neighbour_pos_x:
+			
+		mov edx, dword[esp]
+		mov eax, dword[ebp-20]
+		cmp eax, 0
+		jne _gaycast_no_neighbour_neg_z
+			push dword[ebp-32]
+			dec dword[esp]
 			push dword[ebp-36]
 			push edx
 			call vector_push_back
 			add esp, 12
+		_gaycast_no_neighbour_neg_z:
 			
-			;check if neighbours also need to be reloaded
-			mov edx, dword[ebp+8]
-			mov edx, dword[edx+8]
-			add edx, 32
+		mov edx, dword[esp]
+		mov eax, dword[ebp-20]
+		cmp eax, 15
+		jne _gaycast_no_neighbour_pos_z
+			push dword[ebp-32]
+			inc dword[esp]
+			push dword[ebp-36]
 			push edx
+			call vector_push_back
+			add esp, 12
+		_gaycast_no_neighbour_pos_z:
 			
-			mov edx, dword[esp]
-			mov eax, dword[ebp-28]
-			cmp eax, 0
-			jne _gaycast_no_neighbour_neg_x
-				push dword[ebp-32]
-				push dword[ebp-36]
-				dec dword[esp]
-				push edx
-				call vector_push_back
-				add esp, 12
-			_gaycast_no_neighbour_neg_x:
-			
-			mov edx, dword[esp]
-			mov eax, dword[ebp-28]
-			cmp eax, 15
-			jne _gaycast_no_neighbour_pos_x
-				push dword[ebp-32]
-				push dword[ebp-36]
-				inc dword[esp]
-				push edx
-				call vector_push_back
-				add esp, 12
-			_gaycast_no_neighbour_pos_x:
-			
-			mov edx, dword[esp]
-			mov eax, dword[ebp-20]
-			cmp eax, 0
-			jne _gaycast_no_neighbour_neg_z
-				push dword[ebp-32]
-				dec dword[esp]
-				push dword[ebp-36]
-				push edx
-				call vector_push_back
-				add esp, 12
-			_gaycast_no_neighbour_neg_z:
-			
-			mov edx, dword[esp]
-			mov eax, dword[ebp-20]
-			cmp eax, 15
-			jne _gaycast_no_neighbour_pos_z
-				push dword[ebp-32]
-				inc dword[esp]
-				push dword[ebp-36]
-				push edx
-				call vector_push_back
-				add esp, 12
-			_gaycast_no_neighbour_pos_z:
-			
-			add esp, 4
-		_gaycast_no_block_break:
+		add esp, 4
+		
+		_gaycast_nothing_changed:
 		
 		;destroy the returned collider
 		push dword[ebp-16]
