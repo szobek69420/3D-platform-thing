@@ -7,6 +7,19 @@
 ;	int seed					;52
 ;} 56 bytes
 
+;struct blockData{
+;	int chomkX, chomkZ			;0
+;	char blockX, blockY, blockZ		;8, position in chomk
+;	char blockType				;11
+;} 12 bytes
+
+;struct chomkUpdate{
+;	int chomkX, chomkZ			;0
+;} 8 bytes
+
+CHANGED_BLOCK_SIZE equ 12
+global CHANGED_BLOCK_SIZE
+
 section .rodata
 	print_creation_error_message db "Chomk manager wasn't successful in fanum taxing memory", 10,0
 	print_player_chomk db "Player is at %d,%d; which is in the chomk %d,%d",10,0
@@ -72,14 +85,43 @@ chomkManager_create:
 	
 	_create_alloc_no_error:
 	
-	;init vectors
+	;init loaded chomk vector
 	mov eax, dword[ebp-4]
 	push 4
 	push eax
 	call vector_init
 	add esp, 8
 	
-	;TODO: changed blocks and pending updates vectors
+	;init changed block vector
+	mov eax, dword[ebp-4]
+	add eax, 16
+	push CHANGED_BLOCK_SIZE
+	push eax
+	call vector_init
+	add esp, 8
+	
+	
+	mov eax, dword[ebp-4]
+	add eax, 16
+	sub esp, 4
+	mov byte[esp+3], 3
+	mov byte[esp+2], 10
+	mov byte[esp+1], 40
+	mov byte[esp], 10
+	push 0
+	push 0
+	push eax
+	call vector_push_back
+	add esp, 16
+	
+	
+	;init pending updates vector
+	mov eax, dword[ebp-4]
+	add eax, 32
+	push 8
+	push eax
+	call vector_init
+	add esp, 8
 	
 	;set render distance and seed
 	mov eax, dword[ebp-4]
@@ -126,7 +168,15 @@ chomkManager_destroy:
 	call vector_destroy
 	add esp, 4
 	
-	;TODO: destroy the changed blocks and pending updates vector
+	lea eax, [esi+16]
+	push eax
+	call vector_destroy
+	add esp, 4
+	
+	lea eax, [esi+32]
+	push eax
+	call vector_destroy
+	add esp, 4
 	
 	;free the chomk manager
 	push dword[ebp+16]
@@ -178,6 +228,7 @@ chomkManager_addChomk:
 		
 	mov eax, dword[ebp+8]		;cm in eax
 	
+	push dword[ebp+8]
 	push dword[ebp+16]
 	push dword[ebp+12]
 	push dword[eax+52]		;seed

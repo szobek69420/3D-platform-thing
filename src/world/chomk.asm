@@ -65,10 +65,12 @@ section .text
 	
 	extern blocks_getTerrainHeight
 	
+	extern CHANGED_BLOCK_SIZE
+	
 	
 	global chomk_printChomkCount			;void chomk_printChomkCount()
 	
-	global chomk_generateChomk			;chomk* chomk_generateChomk(int seed, int chomkX, int chomkZ)
+	global chomk_generateChomk			;chomk* chomk_generateChomk(int seed, int chomkX, int chomkZ, chomkManager* chomkManager)
 	global chomk_destroyChomk			;void chomk_destroyChomk(chomk* chomk)
 	
 	global chomk_renderChomk			;void chomk_renderChomk(chomk* chomk, ScreenInfo* display, mat4* pv, camera* cum)
@@ -268,6 +270,50 @@ _generateChomk_terrain_generation_y_loop_start:
 	jl _generateChomk_terrain_generation_y_loop_start
 	
 	
+	;set the changed blocks
+	mov ebx, dword[ebp-4]
+	mov ebx, dword[ebx+8]		;blocks in ebx
+	mov edi, dword[ebp+32]
+	mov esi, dword[edi+28]		;changed blocks in esi
+	mov edi, dword[edi+16]		;changed block count in edi
+	cmp edi, 0
+	je _generate_change_blocks_loop_end
+	_generate_change_blocks_loop_start:
+		mov eax, dword[esi]		;chomkX in eax
+		cmp eax, dword[ebp+24]
+		jne _generate_change_block_loop_continue
+		mov eax, dword[esi+4]		;chomkZ in eax
+		cmp eax, dword[ebp+28]
+		jne _generate_change_block_loop_continue
+		
+		;calculate block index in blocks
+		xor ecx, ecx
+		mov cl, byte[esi+9]
+		inc ecx
+		imul ecx, CHOMK_BLOCKS_PER_LAYER
+		mov eax, ecx
+		
+		xor ecx, ecx
+		mov cl, byte[esi+8]
+		inc ecx
+		imul ecx, CHOMK_WIDTH_PLUS_TWO
+		add eax, ecx
+		
+		xor ecx, ecx
+		mov cl, byte[esi+10]
+		inc ecx
+		add eax, ecx
+		
+		;change block
+		mov dl, byte[esi+11]
+		mov byte[ebx+eax], dl
+		
+		_generate_change_block_loop_continue:
+		add esi, CHANGED_BLOCK_SIZE
+		dec edi
+		cmp edi, 0
+		jg _generate_change_blocks_loop_start
+	_generate_change_blocks_loop_end:
 	
 	;calculate chomk base position
 	lea eax, [ebp-64]
