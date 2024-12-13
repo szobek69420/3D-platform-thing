@@ -277,15 +277,72 @@ _generateChomk_terrain_generation_y_loop_start:
 	mov edi, dword[ebp+32]
 	mov esi, dword[edi+28]		;changed blocks in esi
 	mov edi, dword[edi+16]		;changed block count in edi
+	
+	sub esp, 4			;blockZ in this chomk
+	sub esp, 4			;blockX in this chomk
+	
 	cmp edi, 0
 	je _generate_change_blocks_loop_end
 	_generate_change_blocks_loop_start:
-		mov eax, dword[esi]		;chomkX in eax
-		cmp eax, dword[ebp+24]
-		jne _generate_change_block_loop_continue
-		mov eax, dword[esi+4]		;chomkZ in eax
-		cmp eax, dword[ebp+28]
-		jne _generate_change_block_loop_continue
+		;check if the changed block is in this or a neighbouring chomk
+		mov eax, dword[esi]		;changedBlock.chomkX-chomkX in eax
+		sub eax, dword[ebp+24]
+		cmp eax, 1
+		je _generate_change_block_check_chomk_z
+		cmp eax, 0
+		je _generate_change_block_check_chomk_z
+		cmp eax, -1
+		je _generate_change_block_check_chomk_z
+		jmp _generate_change_block_loop_continue
+		
+		_generate_change_block_check_chomk_z:
+		mov eax, dword[esi+4]		;changedBlock.chomkZ-chomkZ in eax
+		sub eax, dword[ebp+28]
+		cmp eax, 1
+		je _generate_change_block_loop_calculate_index
+		cmp eax, 0
+		je _generate_change_block_loop_calculate_index
+		cmp eax, -1
+		je _generate_change_block_loop_calculate_index
+		jmp _generate_change_block_loop_continue
+		
+		
+		_generate_change_block_loop_calculate_index:
+		;calculate block index in this chomk
+		mov eax, dword[esi]
+		imul eax, 16
+		xor ecx, ecx
+		mov cl, byte[esi+8]
+		add eax, ecx
+		mov ecx, dword[ebp+24]
+		imul ecx, 16
+		sub eax, ecx
+		inc eax
+		mov dword[esp], eax
+		
+		mov eax, dword[esi+4]
+		imul eax, 16
+		xor ecx, ecx
+		mov cl, byte[esi+10]
+		add eax, ecx
+		mov ecx, dword[ebp+28]
+		imul ecx, 16
+		sub eax, ecx
+		inc eax
+		mov dword[esp+4], eax
+		
+		;check if the block is in this chomk or on the border of a neighbouring chomk
+		mov eax, dword[esp]
+		cmp eax, CHOMK_WIDTH_PLUS_TWO 
+		jge _generate_change_block_loop_continue
+		cmp eax, 0
+		jl _generate_change_block_loop_continue
+		
+		mov eax, dword[esp+4]
+		cmp eax, CHOMK_WIDTH_PLUS_TWO 
+		jge _generate_change_block_loop_continue
+		cmp eax, 0
+		jl _generate_change_block_loop_continue
 		
 		;calculate block index in blocks
 		xor ecx, ecx
@@ -294,15 +351,11 @@ _generateChomk_terrain_generation_y_loop_start:
 		imul ecx, CHOMK_BLOCKS_PER_LAYER
 		mov eax, ecx
 		
-		xor ecx, ecx
-		mov cl, byte[esi+8]
-		inc ecx
+		mov ecx, dword[esp]
 		imul ecx, CHOMK_WIDTH_PLUS_TWO
 		add eax, ecx
 		
-		xor ecx, ecx
-		mov cl, byte[esi+10]
-		inc ecx
+		mov ecx, dword[esp+4]
 		add eax, ecx
 		
 		;change block
@@ -315,6 +368,7 @@ _generateChomk_terrain_generation_y_loop_start:
 		cmp edi, 0
 		jg _generate_change_blocks_loop_start
 	_generate_change_blocks_loop_end:
+	add esp, 8
 	
 	;calculate chomk base position
 	lea eax, [ebp-64]

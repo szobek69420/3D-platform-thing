@@ -21,12 +21,15 @@ section .rodata
 	
 	DEFAULT_POSITION dd 0.0, 35.0, 10.0
 	
-	COLLIDER_LOWER_BOUND dd -0.15, -1.5, -0.15
-	COLLIDER_UPPER_BOUND dd 0.15, 1.5, 0.15
+	COLLIDER_LOWER_BOUND dd -0.3, -1.7, -0.3
+	COLLIDER_UPPER_BOUND dd 0.3, 0.1, 0.3
 	
 	ZERO dd 0.0
 	ONE dd 1.0
 	HALF dd 0.5
+	
+	MAX_PITCH dd 89.5
+	MIN_PITCH dd -89.5
 	
 	REACH dd 4.0
 	
@@ -434,6 +437,16 @@ _rotatePlayer_no_down:
 	mulss xmm0, xmm1
 	movss xmm1, dword[eax+12]
 	addss xmm1, xmm0
+	
+	ucomiss xmm1, dword[MAX_PITCH]
+	jbe _rotatePlayer_not_max
+		movss xmm1, dword[MAX_PITCH]
+	_rotatePlayer_not_max:
+	
+	ucomiss xmm1, dword[MIN_PITCH]
+	jae _rotatePlayer_not_min
+		movss xmm1, dword[MIN_PITCH]
+	_rotatePlayer_not_min:
 	movss dword[eax+12], xmm1
 	
 	
@@ -582,12 +595,12 @@ gaycast:	;void gaycast(player* player)
 		_gaycast_neg_z:
 			movss xmm0, dword[ebp-20]
 			subss xmm0, xmm1
-			movss dword[ebp-24], xmm0
+			movss dword[ebp-20], xmm0
 			jmp _gaycast_block_pos_calc_done
 		_gaycast_pos_z:
 			movss xmm0, dword[ebp-20]
 			addss xmm0, xmm1
-			movss dword[ebp-24], xmm0
+			movss dword[ebp-20], xmm0
 			jmp _gaycast_block_pos_calc_done
 		_gaycast_block_pos_calc_done:
 		
@@ -657,6 +670,62 @@ gaycast:	;void gaycast(player* player)
 			push edx
 			call vector_push_back
 			add esp, 12
+			
+			;check if neighbours also need to be reloaded
+			mov edx, dword[ebp+8]
+			mov edx, dword[edx+8]
+			add edx, 32
+			push edx
+			
+			mov edx, dword[esp]
+			mov eax, dword[ebp-28]
+			cmp eax, 0
+			jne _gaycast_no_neighbour_neg_x
+				push dword[ebp-32]
+				push dword[ebp-36]
+				dec dword[esp]
+				push edx
+				call vector_push_back
+				add esp, 12
+			_gaycast_no_neighbour_neg_x:
+			
+			mov edx, dword[esp]
+			mov eax, dword[ebp-28]
+			cmp eax, 15
+			jne _gaycast_no_neighbour_pos_x
+				push dword[ebp-32]
+				push dword[ebp-36]
+				inc dword[esp]
+				push edx
+				call vector_push_back
+				add esp, 12
+			_gaycast_no_neighbour_pos_x:
+			
+			mov edx, dword[esp]
+			mov eax, dword[ebp-20]
+			cmp eax, 0
+			jne _gaycast_no_neighbour_neg_z
+				push dword[ebp-32]
+				dec dword[esp]
+				push dword[ebp-36]
+				push edx
+				call vector_push_back
+				add esp, 12
+			_gaycast_no_neighbour_neg_z:
+			
+			mov edx, dword[esp]
+			mov eax, dword[ebp-20]
+			cmp eax, 15
+			jne _gaycast_no_neighbour_pos_z
+				push dword[ebp-32]
+				inc dword[esp]
+				push dword[ebp-36]
+				push edx
+				call vector_push_back
+				add esp, 12
+			_gaycast_no_neighbour_pos_z:
+			
+			add esp, 4
 		_gaycast_no_block_break:
 		
 		;destroy the returned collider
