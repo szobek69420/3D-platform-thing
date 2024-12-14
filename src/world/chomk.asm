@@ -26,6 +26,23 @@ section .rodata
 	BLOCK_COLLIDER_BOUND_CALC_HELPER dd 0.5, 0.5, 0.5, 0.0
 	
 	ONE dd 1.0
+	
+	TREE_STRUCTURE:
+	dd 14			;block count
+	dd 0,1,0,BLOCK_DIRT
+	dd 0,2,0,BLOCK_DIRT
+	dd 0,3,0,BLOCK_DIRT
+	dd 0,4,0,BLOCK_DIRT
+	dd -2,4,0,BLOCK_GRASS
+	dd -1,4,0,BLOCK_GRASS
+	dd 1,4,0,BLOCK_GRASS
+	dd 2,4,0,BLOCK_GRASS
+	dd 0,4,-2,BLOCK_GRASS
+	dd 0,4,-1,BLOCK_GRASS
+	dd 0,4,1,BLOCK_GRASS
+	dd 0,4,2,BLOCK_GRASS
+	dd 0,5,0,BLOCK_GRASS
+	dd 0,6,0,BLOCK_GRASS
 
 section .data
 	chomkCount dd 0
@@ -36,6 +53,8 @@ section .text
 	extern free
 	extern memset
 	extern memcpy
+	extern rand
+	extern srand
 	
 	extern vector_init
 	extern vector_push_back
@@ -58,6 +77,7 @@ section .text
 	extern BLOCK_AIR
 	extern BLOCK_DIRT
 	extern BLOCK_GRASS
+	extern BLOCK_STONE
 	extern BLOCK_COLLIDER
 	
 	extern BLOCK_COLOUR_INDEX
@@ -244,13 +264,17 @@ _generateChomk_terrain_generation_y_loop_start:
 			mov ecx, dword[esp+8]
 		
 			cmp ecx, eax
-			jle _generateChomk_terrain_grass
+			je _generateChomk_terrain_grass
+			jl _generateChomk_terrain_stone
 			jmp _generateChomk_terrain_air
 			_generateChomk_terrain_air:
 				mov byte[ebx], BLOCK_AIR
 				jmp _generateChomk_terrain_block_done
 			_generateChomk_terrain_grass:
 				mov byte[ebx], BLOCK_GRASS
+				jmp _generateChomk_terrain_block_done
+			_generateChomk_terrain_stone:
+				mov byte[ebx], BLOCK_STONE
 				jmp _generateChomk_terrain_block_done
 			_generateChomk_terrain_block_done:
 			
@@ -270,6 +294,78 @@ _generateChomk_terrain_generation_y_loop_start:
 	cmp eax, CHOMK_HEIGHT_PLUS_TWO
 	jl _generateChomk_terrain_generation_y_loop_start
 	
+	;add trees
+	mov eax, dword[ebp-80]
+	imul eax, dword[ebp-84]
+	push eax
+	call srand
+	add esp, 4
+	
+	mov ebx, dword[ebp-4]
+	mov ebx, dword[ebx+8]		;blocks in ebx
+	xor esi, esi
+	_generateChomk_tree_generation_x_loop_start:
+		xor edi, edi
+		_generateChomk_tree_generation_z_loop_start:
+			call rand
+			and eax, 0x0000FFFF
+			cmp eax, 64800
+			jl _generateChomk_tree_generation_z_loop_continue
+			
+			;check the x position
+			mov eax, esi
+			cmp eax, 4
+			jl _generateChomk_tree_generation_z_loop_continue
+			add eax, 4
+			cmp eax, CHOMK_WIDTH_PLUS_TWO
+			jg _generateChomk_tree_generation_z_loop_continue
+				
+			;check the z position
+			mov eax, edi
+			cmp eax, 4
+			jl _generateChomk_tree_generation_z_loop_continue
+			add eax, 4
+			cmp eax, CHOMK_WIDTH_PLUS_TWO
+			jg _generateChomk_tree_generation_z_loop_continue
+		
+		
+		
+			mov ecx, esi
+			mov edx, edi
+			add ecx, dword[ebp-80]
+			add edx, dword[ebp-84]
+			push edx
+			push ecx
+			call blocks_getTerrainHeight
+			add esp, 8
+			
+			
+			;check the y pos
+			add eax, 9
+			cmp eax, CHOMK_HEIGHT_PLUS_TWO
+			jg _generateChomk_tree_generation_z_loop_continue
+			
+		
+			sub eax, 9
+			imul eax, CHOMK_BLOCKS_PER_LAYER
+			mov ecx, esi
+			imul ecx, CHOMK_WIDTH_PLUS_TWO
+			add eax, ecx
+			add eax, edi
+			
+			add eax, ebx
+			push eax
+			call add_tree
+			add esp, 4
+			
+			_generateChomk_tree_generation_z_loop_continue:
+			inc edi
+			cmp edi, CHOMK_WIDTH_PLUS_TWO
+			jl _generateChomk_tree_generation_z_loop_start
+			
+		inc esi
+		cmp esi, CHOMK_WIDTH_PLUS_TWO
+		jl _generateChomk_tree_generation_x_loop_start
 	
 	;set the changed blocks
 	mov ebx, dword[ebp-4]
@@ -837,6 +933,41 @@ _generateChomk_helper:		;void _generatechomk_helper(int block, int side, vec3* b
 	pop ebp
 	ret
 	
+add_tree:			;void add_tree(char* treeBaseBlockInBlocks)
+	push ebp
+	push ebx
+	push esi
+	push edi
+	mov ebp, esp
+	
+	
+	mov esi, dword[ebp+20]
+	mov edi, TREE_STRUCTURE
+	add edi, 4
+	mov ebx, dword[TREE_STRUCTURE]
+	_add_tree_loop_start:
+		mov eax, dword[edi+4]
+		imul eax, CHOMK_BLOCKS_PER_LAYER
+		mov ecx, dword[edi]
+		imul ecx, CHOMK_WIDTH_PLUS_TWO
+		add eax, ecx
+		add eax, dword[edi+8]
+		
+		mov cl, byte[edi+12]
+		mov byte[esi+eax], cl
+		
+		add edi, 16
+		dec ebx
+		cmp ebx, 0
+		jg _add_tree_loop_start
+		
+	
+	mov esp, ebp
+	pop edi
+	pop esi
+	pop ebx
+	pop ebp
+	ret
 	
 	
 chomk_destroyChomk:
