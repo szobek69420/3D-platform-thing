@@ -15,6 +15,8 @@ amogus:
 	nasm -felf32 -o ./build/window.o ./window/window.asm
 	nasm -felf32 -o ./build/renderer.o ./renderer/renderer.asm
 	nasm -felf32 -o ./build/renderable.o ./renderer/renderable.asm
+	nasm -felf32 -o ./build/font.o ./renderer/text/font.asm
+	nasm -felf32 -o ./build/text_renderer.o ./renderer/text/text_renderer.asm
 	nasm -felf32 -o ./build/collider.o ./physics/collider.asm
 	nasm -felf32 -o ./build/collider_group.o ./physics/collider_group.asm
 	nasm -felf32 -o ./build/physics.o ./physics/physics.asm
@@ -35,6 +37,8 @@ amogus:
 	./build/window.o \
 	./build/renderer.o \
 	./build/renderable.o \
+	./build/font.o \
+	./build/text_renderer.o \
 	./build/collider.o \
 	./build/collider_group.o \
 	./build/physics.o \

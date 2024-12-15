@@ -165,7 +165,8 @@ section .text
 	global window_consumeEvent	;void window_pendingEvent(ScreenInfo* window, Event* buffer)
 	global window_onResize		;void window_onResize(ScreenInfo* window);
 	
-	global window_showFrame		;void window_showFrame(ScreenInfo* window);
+	global window_scaleBuffer	;void window_scaleBuffer(ScreenInfo* window);	;draws the drawbuffer into the scale buffer
+	global window_showFrame		;void window_showFrame(ScreenInfo* window);	;draws the scale buffer onto the screen
 		
 	global window_clearDrawBuffer	;void window_clear(ScreenInfo* window, int clearColour)
 	
@@ -568,7 +569,7 @@ _consumeEvent_event_check_done:
 	ret
 	
 	
-window_showFrame:
+window_scaleBuffer:
 	push ebp
 	push esi
 	push edi
@@ -576,27 +577,6 @@ window_showFrame:
 	mov ebp, esp
 	
 	mov ebx, dword[ebp+20]		;window in ebx
-	
-	;fill up the draw buffer as a test
-	jmp _showFrame_test_fill_skip
-	mov eax, dword[ebx+28]
-	mov edi, dword[FRAMEBUFFER_HEIGHT]
-_showFrame_test_fill_outer_loop_start:
-	mov esi, dword[FRAMEBUFFER_WIDTH]
-_showFrame_test_fill_inner_loop_start:
-	mov ecx, esi
-	shr ecx, 2
-	or ecx, 0xFF000000
-	mov dword[eax], ecx
-	
-	add eax, 4
-	dec esi
-	cmp esi, 0
-	jg _showFrame_test_fill_inner_loop_start
-	dec edi
-	cmp edi, 0
-	jg _showFrame_test_fill_outer_loop_start
-_showFrame_test_fill_skip:
 	
 	;copy the draw buffer into the scalebuffer
 	push dword[FRAMEBUFFER_WIDTH]
@@ -616,29 +596,46 @@ _showFrame_test_fill_skip:
 	mov eax, dword[ebx+32]			;current pixel in the scale bufffer
 	
 	mov edi, dword[ebx+56]			;the index of the current line
-_showFrame_copy_outer_loop_start:
-	xor ecx, ecx
-	mov cx, word[edi]
-	imul ecx, dword[esp+8]
-	add ecx, dword[ebx+28]
+	_scaleBuffer_copy_outer_loop_start:
+		xor ecx, ecx
+		mov cx, word[edi]
+		imul ecx, dword[esp+8]
+		add ecx, dword[ebx+28]
+		
+		mov esi, dword[ebx+52]			;the index of the current column
+		_scaleBuffer_copy_inner_loop_start:
+			
+			xor edx, edx
+			mov dx, word[esi]
+			mov edx, dword[ecx+4*edx]
+			mov dword[eax], edx
+			
+			add eax, 4
+			add esi, 2
+			cmp esi, dword[esp+4]
+			jl _scaleBuffer_copy_inner_loop_start
+		
+		add edi, 2
+		cmp edi, dword[esp]
+		jl _scaleBuffer_copy_outer_loop_start
+		add esp, 12
 	
-	mov esi, dword[ebx+52]			;the index of the current column
-_showFrame_copy_inner_loop_start:
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
 	
-	xor edx, edx
-	mov dx, word[esi]
-	mov edx, dword[ecx+4*edx]
-	mov dword[eax], edx
 	
-	add eax, 4
-	add esi, 2
-	cmp esi, dword[esp+4]
-	jl _showFrame_copy_inner_loop_start
+window_showFrame:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
 	
-	add edi, 2
-	cmp edi, dword[esp]
-	jl _showFrame_copy_outer_loop_start
-	add esp, 12
+	mov ebx, dword[ebp+20]		;window in ebx
 	
 	;put image
 	push dword[ebx+44]

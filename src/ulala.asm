@@ -11,6 +11,8 @@ section .rodata
 	
 	RAYCAST_KNOB_SCALE dd 0.1, 0.1, 0.1
 	
+	test_text db "BLUGGYHALEK",0
+	
 section .bss
 	window resb 60
 	event_buffer resb 16
@@ -40,6 +42,7 @@ section .text
 	extern window_consumeEvent
 	extern window_clearDrawBuffer
 	extern window_showFrame
+	extern window_scaleBuffer
 	extern window_onResize
 	extern WindowResizeEvent
 
@@ -79,6 +82,8 @@ section .text
 	extern chomkManager_create
 	extern chomkManager_generate
 	extern chomkManager_render
+	
+	extern textRenderer_renderText
 	
 	
 	global raycast_knob
@@ -242,6 +247,18 @@ _start:
 		call chomkManager_render
 		add esp, 16
 		
+		;scale the draw buffer to screen size
+		push window
+		call window_scaleBuffer
+		add esp, 4
+		
+		;render text
+		push 200
+		push 200
+		push window
+		push test_text
+		call textRenderer_renderText
+		add esp, 16
 		
 		;draw buffer
 		push window
