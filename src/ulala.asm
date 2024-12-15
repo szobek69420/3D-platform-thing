@@ -11,7 +11,12 @@ section .rodata
 	
 	RAYCAST_KNOB_SCALE dd 0.1, 0.1, 0.1
 	
-	test_text db "BLUGGYHALEK",0
+	test_text db "TEST TEXT",0
+	test_text2 db "SUPERNIGGA",0
+	
+	status_text_1_format db "PLAYER POS: %.1f, %.1f, %.1f",0 
+	status_text_2_format db "VIEW DIR: %.1f, %.1f",0
+	status_text_3_format db "LOADED CHOMKS: %d",0
 	
 section .bss
 	window resb 60
@@ -36,6 +41,7 @@ section .text
 	extern clock
 	extern memcpy
 	extern printf
+	extern sprintf
 
 	extern window_create
 	extern window_pendingEvent
@@ -84,6 +90,16 @@ section .text
 	extern chomkManager_render
 	
 	extern textRenderer_renderText
+	extern textRenderer_setColour
+	extern TEXT_ALIGN_TOP_LEFT
+	extern TEXT_ALIGN_TOP_CENTER
+	extern TEXT_ALIGN_TOP_RIGHT
+	extern TEXT_ALIGN_CENTER_LEFT
+	extern TEXT_ALIGN_CENTER_CENTER
+	extern TEXT_ALIGN_CENTER_RIGHT
+	extern TEXT_ALIGN_BOTTOM_LEFT
+	extern TEXT_ALIGN_BOTTOM_CENTER
+	extern TEXT_ALIGN_BOTTOM_RIGHT
 	
 	
 	global raycast_knob
@@ -253,12 +269,7 @@ _start:
 		add esp, 4
 		
 		;render text
-		push 200
-		push 200
-		push window
-		push test_text
-		call textRenderer_renderText
-		add esp, 16
+		call renderText
 		
 		;draw buffer
 		push window
@@ -283,6 +294,108 @@ _game_exit:
 	xor ebx, ebx
 	mov eax, 1
 	int 0x80
+	
+	
+renderText:		;void renderText(void)
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 200		;char array
+	mov eax, esp
+	push eax		;address of the array
+	
+	push 0xFFFFFFFF
+	call textRenderer_setColour
+	add esp, 4
+	
+	push TEXT_ALIGN_TOP_RIGHT
+	push 15
+	push 15
+	push window
+	push test_text
+	call textRenderer_renderText
+	add esp, 20
+	
+	push 0xFFFF0000
+	call textRenderer_setColour
+	add esp, 4
+	
+	push TEXT_ALIGN_TOP_RIGHT
+	push 40
+	push 15
+	push window
+	push test_text2
+	call textRenderer_renderText
+	add esp, 20
+	
+	push 0xFFFFFA00
+	call textRenderer_setColour
+	add esp, 4
+	
+	;show player position
+	mov eax, dword[pplayer]
+	mov eax, dword[eax+4]		;collider
+	sub esp, 24
+	fld dword[eax+24]
+	fstp qword[esp]
+	fld dword[eax+28]
+	fstp qword[esp+8]
+	fld dword[eax+32]
+	fstp qword[esp+16]
+	push status_text_1_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 32
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 15
+	push 15
+	push window
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
+	
+	;show player view direction
+	mov eax, dword[pplayer]
+	mov eax, dword[eax]		;camera
+	sub esp, 16
+	fld dword[eax+16]
+	fstp qword[esp]
+	fld dword[eax+12]
+	fstp qword[esp+8]
+	push status_text_2_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 24
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 40
+	push 15
+	push window
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
+	
+	;show loaded chomks
+	mov eax, dword[pchomk_manager]
+	mov eax, dword[eax]		;chomk count
+	push eax
+	push status_text_3_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 12
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 65
+	push 15
+	push window
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
+	
+	mov esp, ebp
+	pop ebp
+	ret
 	
 
 processEvents:		;void processEvents(void) //processes the incoming events

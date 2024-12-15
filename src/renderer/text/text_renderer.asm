@@ -1,3 +1,30 @@
+TEXT_ORIGIN_LEFT equ 0b00000001
+TEXT_ORIGIN_HCENTER equ 0b00000010
+TEXT_ORIGIN_RIGHT equ 0b00000100
+TEXT_ORIGIN_TOP equ 0b00010000
+TEXT_ORIGIN_VCENTER equ 0b00100000
+TEXT_ORIGIN_BOTTOM equ 0b01000000
+
+TEXT_ALIGN_TOP_LEFT equ 0b00010001
+TEXT_ALIGN_TOP_CENTER equ 0b00010010
+TEXT_ALIGN_TOP_RIGHT equ 0b00010100
+TEXT_ALIGN_CENTER_LEFT equ 0b00100001
+TEXT_ALIGN_CENTER_CENTER equ 0b00100010
+TEXT_ALIGN_CENTER_RIGHT equ 0b00100100
+TEXT_ALIGN_BOTTOM_LEFT equ 0b01000001
+TEXT_ALIGN_BOTTOM_CENTER equ 0b01000010
+TEXT_ALIGN_BOTTOM_RIGHT equ 0b01000100
+
+	global TEXT_ALIGN_TOP_LEFT
+	global TEXT_ALIGN_TOP_CENTER
+	global TEXT_ALIGN_TOP_RIGHT
+	global TEXT_ALIGN_CENTER_LEFT
+	global TEXT_ALIGN_CENTER_CENTER
+	global TEXT_ALIGN_CENTER_RIGHT
+	global TEXT_ALIGN_BOTTOM_LEFT
+	global TEXT_ALIGN_BOTTOM_CENTER
+	global TEXT_ALIGN_BOTTOM_RIGHT
+
 section .data
 	TEXT_COLOUR dd 0xFFFFFFFF
 	
@@ -7,6 +34,7 @@ section .data
 
 section .text
 	extern printf
+	extern strlen
 
 	extern FONT_CHAR_WIDTH
 	extern FONT_CHAR_HEIGHT
@@ -14,11 +42,150 @@ section .text
 	
 	FONT_SCALE equ 2
 
-
-	global textRenderer_renderText		;void textRenderer_renderText(char* text, ScreenInfo* window, int x, int y)
+	global textRenderer_setColour		;void textRenderer_setColour(int colour)
+	global textRenderer_getTextWidth	;int textRenderer_getTextWidth(char* text)
+	global textRenderer_getTextHeight	;int textRenderer_getTextHeight(char* text)
+	global textRenderer_renderText		;void textRenderer_renderText(char* text, ScreenInfo* window, int x, int y, int alignment)
 	
+textRenderer_setColour:
+	mov eax, dword[esp+4]
+	mov dword[TEXT_COLOUR], eax
+	ret
+	
+textRenderer_getTextWidth:
+	mov eax, dword[esp+4]
+	push eax
+	call strlen
+	add esp, 4
+	
+	mov ecx, FONT_CHAR_WIDTH
+	inc ecx
+	imul eax, ecx
+	dec eax
+	ret
+	
+textRenderer_getTextHeight:
+	mov eax, FONT_CHAR_HEIGHT
+	ret
 	
 textRenderer_renderText:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;actual y pos
+	sub esp, 4		;actual x pos
+	
+	
+	;calculate horizontal position
+	mov ecx, dword[ebp+24]		;alignment in ecx
+	and ecx, TEXT_ORIGIN_LEFT
+	cmp ecx, 0
+	je _renderText_origin_not_left
+		mov edx, dword[ebp+16]
+		mov dword[ebp-8], edx
+		jmp _renderText_origin_horizontal_done
+	_renderText_origin_not_left:
+	
+	mov ecx, dword[ebp+24]		;alignment in ecx
+	and ecx, TEXT_ORIGIN_HCENTER
+	cmp ecx, 0
+	je _renderText_origin_not_hcenter
+		push dword[ebp+8]
+		call textRenderer_getTextWidth
+		shr eax, 1
+		add esp, 4
+		
+		mov ecx, dword[ebp+12]
+		mov ecx, dword[ecx+40]		;screen width in ecx
+		shr ecx, 1
+		
+		sub ecx, eax
+		add ecx, dword[ebp+16]
+		mov dword[ebp-8], ecx
+		
+		jmp _renderText_origin_horizontal_done
+	_renderText_origin_not_hcenter:
+	
+	mov ecx, dword[ebp+24]		;alignment in ecx
+	and ecx, TEXT_ORIGIN_RIGHT
+	cmp ecx, 0
+	je _renderText_origin_not_right
+		push dword[ebp+8]
+		call textRenderer_getTextWidth
+		add esp, 4
+		
+		mov ecx, dword[ebp+12]
+		mov ecx, dword[ecx+40]		;screen width in ecx
+		
+		sub ecx, eax
+		sub ecx, dword[ebp+16]
+		mov dword[ebp-8], ecx
+		
+		jmp _renderText_origin_horizontal_done
+	_renderText_origin_not_right:	
+	_renderText_origin_horizontal_done:
+	
+	
+	;calculate vertical position
+	mov ecx, dword[ebp+24]		;alignment in ecx
+	and ecx, TEXT_ORIGIN_TOP
+	cmp ecx, 0
+	je _renderText_origin_not_top
+		mov edx, dword[ebp+20]
+		mov dword[ebp-4], edx
+		jmp _renderText_origin_vertical_done
+	_renderText_origin_not_top:
+	
+	mov ecx, dword[ebp+24]		;alignment in ecx
+	and ecx, TEXT_ORIGIN_VCENTER
+	cmp ecx, 0
+	je _renderText_origin_not_vcenter
+		push dword[ebp+8]
+		call textRenderer_getTextHeight
+		shr eax, 1
+		add esp, 4
+		
+		mov ecx, dword[ebp+12]
+		mov ecx, dword[ecx+44]		;screen height in ecx
+		shr ecx, 1
+		
+		sub ecx, eax
+		add ecx, dword[ebp+20]
+		mov dword[ebp-4], ecx
+		
+		jmp _renderText_origin_vertical_done
+	_renderText_origin_not_vcenter:
+	
+	mov ecx, dword[ebp+24]		;alignment in ecx
+	and ecx, TEXT_ORIGIN_BOTTOM
+	cmp ecx, 0
+	je _renderText_origin_not_bottom
+		push dword[ebp+8]
+		call textRenderer_getTextHeight
+		add esp, 4
+		
+		mov ecx, dword[ebp+12]
+		mov ecx, dword[ecx+44]		;screen height in ecx
+		
+		sub ecx, eax
+		sub ecx, dword[ebp+20]
+		mov dword[ebp-4], ecx
+		
+		jmp _renderText_origin_vertical_done
+	_renderText_origin_not_bottom:	
+	_renderText_origin_vertical_done:
+	
+	push dword[ebp-4]
+	push dword[ebp-8]
+	push dword[ebp+12]
+	push dword[ebp+8]
+	call textRenderer_renderTextInternal
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+textRenderer_renderTextInternal:	;void textRenderer_renderTextInternal(char* text, ScreenInfo* window, int x, int y)
 	push ebp
 	push ebx
 	push esi
@@ -87,7 +254,7 @@ textRenderer_renderText:
 					imul edx, dword[ebp-12]
 					lea edx, [edx+4*esi]
 					mov ecx, dword[TEXT_COLOUR]
-					mov dword[ebx+edx], 0xFFFFFFFF
+					mov dword[ebx+edx], ecx
 				_renderText_no_colour:
 				pop ecx
 				
