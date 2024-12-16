@@ -3,7 +3,11 @@
 ;	Camera* cum;
 ;	Collider* collider;
 ;	chomkManager* cm;
+;	int selectedInventorySlot;
 ;}
+
+INVENTORY_SLOT_COUNT equ 5
+INVENTORY_SLOT_SIZE equ 60
 
 section .rodata
 	init_error_message db "Player couldn't be created lol",10,0
@@ -11,6 +15,7 @@ section .rodata
 	raycast_hit_message db "raycast hit",10,0
 	
 	print_block_info db "chomkX: %d, chomkZ: %d, blockX: %d, blockY: %d, blockZ: %d",10,0
+	print_four_ints_format db "%d %d %d %d",10,0
 	
 	HORIZONTAL_LOOK_SENSITIVITY dd 120.0
 	VERTICAL_LOOK_SENSITIVITY dd 120.0
@@ -42,6 +47,8 @@ section .rodata
 	JUMP_STRENGTH dd 20.0
 	
 	RAYCAST_KNOB_UNUSED_POSITION dd 0.0, 1000000.0, 0.0
+	
+	INVENTORY dd BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_GRASS, BLOCK_DIRT
 
 section .text
 	extern printf
@@ -66,6 +73,11 @@ section .text
 	
 	extern vector_push_back
 	
+	extern KEY_1
+	extern KEY_2
+	extern KEY_3
+	extern KEY_4
+	extern KEY_5
 	extern KEY_W
 	extern KEY_A
 	extern KEY_S
@@ -88,7 +100,10 @@ section .text
 	extern COLLISION_NEG_Z
 	
 	extern BLOCK_COLLIDER
+	extern BLOCK_COLOUR_INDEX
 	extern BLOCK_AIR
+	extern BLOCK_GRASS
+	extern BLOCK_DIRT
 	extern BLOCK_STONE
 	
 	extern raycast_knob
@@ -98,13 +113,15 @@ section .text
 	
 	global player_update		;void player_update(player* player, float deltaTimeInSex)
 	
+	global player_printUI		;void player_printUI(player* player, ScreenInfo* window)
+	
 player_init:
 	push ebp
 	mov ebp, esp
 	
 	sub esp, 4		;player
 	
-	push 12
+	push 16
 	call malloc
 	mov dword[ebp-4], eax
 	add esp, 4
@@ -148,6 +165,10 @@ _init_no_error:
 	push eax
 	call memcpy
 	add esp, 12
+	
+	;set selected inventory slot
+	mov eax, dword[ebp-4]
+	mov dword[eax+12], 0
 	
 	
 	mov eax, dword[ebp-4]
@@ -205,6 +226,10 @@ player_update:
 	push dword[ebp+8]
 	call zoomCamera
 	add esp, 8	
+	
+	push dword[ebp+8]
+	call changeInventorySlot
+	add esp, 4
 	
 	push dword[ebp+8]
 	call gaycast
@@ -569,7 +594,10 @@ gaycast:	;void gaycast(player* player)
 		mov ecx, dword[ecx+52]
 		cmp ecx, BLOCK_COLLIDER
 		jne _gaycast_no_block_place
-			mov dword[ebp-40], BLOCK_STONE
+			mov eax, dword[ebp+8]
+			mov eax, dword[eax+12]
+			mov eax, dword[4*eax+INVENTORY]
+			mov dword[ebp-40], eax
 			mov dword[ebp-44], -1
 		_gaycast_no_block_place:
 		
@@ -784,6 +812,289 @@ gaycast:	;void gaycast(player* player)
 		add esp, 12
 	
 	_gaycast_done:
+	mov esp, ebp
+	pop ebp
+	ret
+	
+changeInventorySlot:		;void changeInventorySlot(player* player)
+	push ebp
+	mov ebp, esp
+	
+	push KEY_1
+	call input_isKeyPressed
+	add esp, 4
+	test eax, eax
+	je _not_slot_1
+		mov edx, dword[ebp+8]
+		mov dword[edx+12], 0
+	_not_slot_1:
+	
+	push KEY_2
+	call input_isKeyPressed
+	add esp, 4
+	test eax, eax
+	je _not_slot_2
+		mov edx, dword[ebp+8]
+		mov dword[edx+12], 1
+	_not_slot_2:
+	
+	push KEY_3
+	call input_isKeyPressed
+	add esp, 4
+	test eax, eax
+	je _not_slot_3
+		mov edx, dword[ebp+8]
+		mov dword[edx+12], 2
+	_not_slot_3:
+	
+	push KEY_4
+	call input_isKeyPressed
+	add esp, 4
+	test eax, eax
+	je _not_slot_4
+		mov edx, dword[ebp+8]
+		mov dword[edx+12], 3
+	_not_slot_4:
+	
+	push KEY_5
+	call input_isKeyPressed
+	add esp, 4
+	test eax, eax
+	je _not_slot_5
+		mov edx, dword[ebp+8]
+		mov dword[edx+12], 4
+	_not_slot_5:
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+player_printUI:
+	push ebp
+	push ebx
+	push esi
+	push edi
+	mov ebp, esp
+	
+	
+	push dword[ebp+24]
+	push dword[ebp+20]
+	call drawInventory
+	add esp, 8
+	
+	mov esp, ebp
+	pop edi
+	pop esi
+	pop ebx
+	pop ebp
+	ret
+	
+	
+drawRectangle:		;void drawRectangle(ScreenInfo* window, int x, int y, int width, int height, int colour)
+	push ebp
+	push ebx
+	push esi
+	push edi
+	mov ebp, esp
+	
+	sub esp, 4		;corrected height
+	sub esp, 4		;corrected width
+	sub esp, 4		;corrected y
+	sub esp, 4		;corrected x
+	
+	sub esp, 4		;screenbuffer
+	sub esp, 4		;screen height
+	sub esp, 4		;screen width
+	
+	;set screen data
+	mov eax, dword[ebp+20]
+	
+	mov ecx, dword[eax+32]
+	mov dword[ebp-20], ecx
+	mov ecx, dword[eax+40]
+	mov dword[ebp-28], ecx
+	mov ecx, dword[eax+44]
+	mov dword[ebp-24], ecx
+
+	
+	;correct x and width
+	mov eax, dword[ebp+24]
+	mov dword[ebp-16], eax
+	mov ecx, dword[ebp+32]
+	mov dword[ebp-8], ecx
+	cmp eax, 0
+	jge _x_pos_correction_done
+		neg eax
+		inc eax
+		sub ecx, eax
+		mov dword[ebp-8], ecx
+		mov dword[ebp-16], 0
+		cmp ecx, 0
+		jl _drawRectangle_done
+	_x_pos_correction_done:
+	
+	mov eax, dword[ebp-16]
+	mov ecx, dword[ebp-8]
+	add eax, ecx
+	cmp eax, dword[ebp-28]
+	jl _width_correction_done
+		sub eax, dword[ebp-28]
+		sub ecx, eax
+		mov dword[ebp-8], ecx
+	_width_correction_done:
+	mov ecx, dword[ebp-8]
+	cmp ecx, 0
+	jle _drawRectangle_done
+	
+	;correct y and height
+	mov eax, dword[ebp+28]
+	mov dword[ebp-12], eax
+	mov ecx, dword[ebp+36]
+	mov dword[ebp-4], ecx
+	cmp eax, 0
+	jge _y_pos_correction_done
+		neg eax
+		inc eax
+		sub ecx, eax
+		mov dword[ebp-4], ecx
+		mov dword[ebp-12], 0
+		cmp ecx, 0
+		jl _drawRectangle_done
+	_y_pos_correction_done:
+	
+	mov eax, dword[ebp-12]
+	mov ecx, dword[ebp-4]
+	add eax, ecx
+	cmp eax, dword[ebp-24]
+	jl _height_correction_done
+		sub eax, dword[ebp-24]
+		sub ecx, eax
+		mov dword[ebp-4], ecx
+	_height_correction_done:
+	mov ecx, dword[ebp-4]
+	cmp ecx, 0
+	jle _drawRectangle_done
+	
+	;draw rectangle
+	mov ebx, dword[ebp-20]	;screen buffer in ebx
+	mov edx, dword[ebp+40]	;colour in edx
+	mov esi, dword[ebp-12]	;y pos in esi
+	mov edi, dword[ebp-16]	;x pos in edi
+	mov ecx, dword[ebp-4]
+	_drawRectangle_draw_y_loop_start:
+		push ecx
+		mov eax, esi
+		imul eax, dword[ebp-28]
+		lea eax, [ebx+4*eax]
+		lea eax, [eax+4*edi]		;current pixel in the buffer
+		mov ecx, dword[ebp-8]
+		_drawRectangle_draw_x_loop_start:
+			mov dword[eax], edx
+			
+			add eax, 4
+			dec ecx
+			test ecx, ecx
+			jne _drawRectangle_draw_x_loop_start
+		
+		pop ecx
+		inc esi
+		dec ecx
+		test ecx, ecx
+		jne _drawRectangle_draw_y_loop_start
+	
+	_drawRectangle_done:	
+	mov esp, ebp
+	pop edi
+	pop esi
+	pop ebx
+	pop ebp
+	ret
+
+
+drawInventory:		;void drawInventory(player* player, ScreenInfo* window)
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;current inventory slot pos y
+	sub esp, 4		;current inventory slot pos x
+	sub esp, 4		;chosen slot index
+	
+	mov eax, INVENTORY_SLOT_COUNT
+	cmp eax, 0
+	jle _drawInventory_done
+	
+	;obtain chosen slot
+	mov eax, dword[ebp+8]
+	mov eax, dword[eax+12]
+	mov dword[ebp-12], eax
+	
+	;calc slot position
+	mov eax, dword[ebp+12]
+	
+	mov ecx, dword[eax+40]
+	shr ecx, 1
+	mov edx, INVENTORY_SLOT_SIZE
+	imul edx, INVENTORY_SLOT_COUNT
+	shr edx, 1
+	sub ecx, edx
+	mov dword[ebp-8], ecx
+	
+	mov ecx, dword[eax+44]
+	sub ecx, INVENTORY_SLOT_SIZE
+	mov dword[ebp-4], ecx
+	
+	;draw the thing
+	xor eax, eax
+	_drawInventory_draw_loop_start:
+		push eax		;save eax
+	
+		;draw slot frame
+		mov edx, 0xFFAAAAAA
+		cmp eax, dword[ebp-12]
+		jne _drawInventory_not_this_slot
+			mov edx, 0xFFFFFFFF
+		_drawInventory_not_this_slot:
+		push edx
+		push INVENTORY_SLOT_SIZE
+		push INVENTORY_SLOT_SIZE
+		push dword[ebp-4]
+		push dword[ebp-8]
+		push dword[ebp+12]
+		call drawRectangle
+		add esp, 24
+		
+		;draw slot content
+		mov edx, dword[esp]			;current slot
+		mov edx, dword[INVENTORY+4*edx]
+		mov edx, dword[4*edx+BLOCK_COLOUR_INDEX]
+		mov edx, dword[edx]
+		push edx
+		
+		mov ecx, INVENTORY_SLOT_SIZE
+		sub ecx, 10
+		push ecx
+		push ecx
+		
+		mov ecx, dword[ebp-4]
+		add ecx, 5
+		push ecx
+		
+		mov ecx, dword[ebp-8]
+		add ecx, 5
+		push ecx
+		
+		push dword[ebp+12]
+		call drawRectangle
+		add esp, 24
+		
+		pop eax		;restore eax
+		add dword[ebp-8], INVENTORY_SLOT_SIZE
+		inc eax
+		cmp eax, INVENTORY_SLOT_COUNT
+		jl _drawInventory_draw_loop_start
+	
+	_drawInventory_done:
 	mov esp, ebp
 	pop ebp
 	ret

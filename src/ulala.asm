@@ -12,11 +12,12 @@ section .rodata
 	RAYCAST_KNOB_SCALE dd 0.1, 0.1, 0.1
 	
 	test_text db "TEST TEXT",0
-	test_text2 db "SUPERNIGGA",0
+	test_text2 db "NIGGA",0
 	
 	status_text_1_format db "PLAYER POS: %.1f, %.1f, %.1f",0 
 	status_text_2_format db "VIEW DIR: %.1f, %.1f",0
 	status_text_3_format db "LOADED CHOMKS: %d",0
+	status_text_4_format db "FPS: %d",0
 	
 section .bss
 	window resb 60
@@ -36,6 +37,7 @@ section .bss
 section .data
 	frameCount dd 0
 	lastSecond dd 0.0
+	fps dd 0
 	
 section .text
 	extern clock
@@ -54,6 +56,7 @@ section .text
 
 	extern player_init
 	extern player_update
+	extern player_printUI
 	
 	extern camera_init
 	extern camera_viewProjection
@@ -183,7 +186,8 @@ _start:
 		movss xmm1, dword[ONE]
 		ucomiss xmm0, xmm1
 		jb _skip_fps_print
-			
+			mov eax, dword[frameCount]
+			mov dword[fps], eax
 			push dword[frameCount]
 			push print_frame_count
 			call printf
@@ -316,7 +320,7 @@ renderText:		;void renderText(void)
 	call textRenderer_renderText
 	add esp, 20
 	
-	push 0xFFFF0000
+	push 0xFF000000
 	call textRenderer_setColour
 	add esp, 4
 	
@@ -331,6 +335,21 @@ renderText:		;void renderText(void)
 	push 0xFFFFFA00
 	call textRenderer_setColour
 	add esp, 4
+	
+	;print fps
+	push dword[fps]
+	push status_text_4_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 12
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 15
+	push 15
+	push window
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
 	
 	;show player position
 	mov eax, dword[pplayer]
@@ -348,7 +367,7 @@ renderText:		;void renderText(void)
 	add esp, 32
 	
 	push TEXT_ALIGN_TOP_LEFT
-	push 15
+	push 40
 	push 15
 	push window
 	push dword[ebp-204]
@@ -369,7 +388,7 @@ renderText:		;void renderText(void)
 	add esp, 24
 	
 	push TEXT_ALIGN_TOP_LEFT
-	push 40
+	push 65
 	push 15
 	push window
 	push dword[ebp-204]
@@ -386,12 +405,18 @@ renderText:		;void renderText(void)
 	add esp, 12
 	
 	push TEXT_ALIGN_TOP_LEFT
-	push 65
+	push 90
 	push 15
 	push window
 	push dword[ebp-204]
 	call textRenderer_renderText
 	add esp, 20
+	
+	;draw player ui
+	push window
+	push dword[pplayer]
+	call player_printUI
+	add esp, 8
 	
 	mov esp, ebp
 	pop ebp
