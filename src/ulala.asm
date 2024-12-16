@@ -56,6 +56,7 @@ section .text
 
 	extern player_init
 	extern player_update
+	extern player_render
 	extern player_printUI
 	
 	extern camera_init
@@ -265,6 +266,15 @@ _start:
 		push window
 		push dword[pchomk_manager]
 		call chomkManager_render
+		add esp, 16
+		
+		;render player
+		mov eax, dword[pplayer]
+		push dword[eax]
+		push pv_matrix
+		push window
+		push eax
+		call player_render
 		add esp, 16
 		
 		;scale the draw buffer to screen size

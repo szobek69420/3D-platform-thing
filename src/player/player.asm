@@ -4,6 +4,7 @@
 ;	Collider* collider;
 ;	chomkManager* cm;
 ;	int selectedInventorySlot;
+;	Renderable* heldBlock;
 ;}
 
 INVENTORY_SLOT_COUNT equ 5
@@ -16,6 +17,7 @@ section .rodata
 	
 	print_block_info db "chomkX: %d, chomkZ: %d, blockX: %d, blockY: %d, blockZ: %d",10,0
 	print_four_ints_format db "%d %d %d %d",10,0
+	
 	
 	HORIZONTAL_LOOK_SENSITIVITY dd 120.0
 	VERTICAL_LOOK_SENSITIVITY dd 120.0
@@ -49,6 +51,10 @@ section .rodata
 	RAYCAST_KNOB_UNUSED_POSITION dd 0.0, 1000000.0, 0.0
 	
 	INVENTORY dd BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_GRASS, BLOCK_DIRT
+	
+	HELD_BLOCK_POS dd 0.2, -0.2, -0.2
+	HELD_BLOCK_SCALE dd 0.1
+	HELD_BLOCK_Y_ROT dd 15.0
 
 section .text
 	extern printf
@@ -59,6 +65,7 @@ section .text
 	extern input_isKeyPressed
 	extern camera_forward
 	extern camera_right
+	extern camera_projection
 	extern vec3_print
 	extern vec3_scale
 	extern vec3_add
@@ -72,6 +79,10 @@ section .text
 	extern physics_staticRaycast
 	
 	extern vector_push_back
+	
+	extern renderable_createKuba
+	extern renderable_destroy
+	extern renderable_render
 	
 	extern KEY_1
 	extern KEY_2
@@ -112,7 +123,7 @@ section .text
 	global player_destroy		;void player_destroy()
 	
 	global player_update		;void player_update(player* player, float deltaTimeInSex)
-	
+	global player_render		;void player_render(player* player, ScreenInfo* window, mat4* pv, camera* cum)
 	global player_printUI		;void player_printUI(player* player, ScreenInfo* window)
 	
 player_init:
@@ -170,6 +181,35 @@ _init_no_error:
 	mov eax, dword[ebp-4]
 	mov dword[eax+12], 0
 	
+	;alloc held block renderable and initialize it
+	push 84
+	call malloc
+	add esp, 4
+	mov ecx, dword[ebp-4]
+	mov dword[ecx+16], eax
+	push eax
+	call renderable_createKuba
+	pop eax
+	
+	mov ecx, dword[HELD_BLOCK_POS]
+	mov dword[eax+48], ecx
+	mov ecx, dword[HELD_BLOCK_POS+4]
+	mov dword[eax+52], ecx
+	mov ecx, dword[HELD_BLOCK_POS+8]
+	mov dword[eax+56], ecx
+	
+	mov ecx, dword[HELD_BLOCK_Y_ROT]
+	mov dword[eax+64], ecx
+	
+	mov ecx, dword[HELD_BLOCK_SCALE]
+	mov dword[eax+72], ecx
+	mov dword[eax+76], ecx
+	mov dword[eax+80], ecx
+	
+	push dword[ebp-4]
+	call recalculateHeldBlockRenderable
+	add esp, 4
+	
 	
 	mov eax, dword[ebp-4]
 	
@@ -186,6 +226,12 @@ player_destroy:
 	mov eax, dword[ebp+8]
 	push dword[eax+4]
 	call collider_destroyCollider
+	add esp, 4
+	
+	mov eax, dword[ebp+8]
+	push dword[eax+16]
+	call renderable_destroy
+	call free
 	add esp, 4
 	
 	push dword[ebp+8]
@@ -827,6 +873,7 @@ changeInventorySlot:		;void changeInventorySlot(player* player)
 	je _not_slot_1
 		mov edx, dword[ebp+8]
 		mov dword[edx+12], 0
+		jmp _block_changed
 	_not_slot_1:
 	
 	push KEY_2
@@ -836,6 +883,7 @@ changeInventorySlot:		;void changeInventorySlot(player* player)
 	je _not_slot_2
 		mov edx, dword[ebp+8]
 		mov dword[edx+12], 1
+		jmp _block_changed
 	_not_slot_2:
 	
 	push KEY_3
@@ -845,6 +893,7 @@ changeInventorySlot:		;void changeInventorySlot(player* player)
 	je _not_slot_3
 		mov edx, dword[ebp+8]
 		mov dword[edx+12], 2
+		jmp _block_changed
 	_not_slot_3:
 	
 	push KEY_4
@@ -854,6 +903,7 @@ changeInventorySlot:		;void changeInventorySlot(player* player)
 	je _not_slot_4
 		mov edx, dword[ebp+8]
 		mov dword[edx+12], 3
+		jmp _block_changed
 	_not_slot_4:
 	
 	push KEY_5
@@ -863,7 +913,80 @@ changeInventorySlot:		;void changeInventorySlot(player* player)
 	je _not_slot_5
 		mov edx, dword[ebp+8]
 		mov dword[edx+12], 4
+		jmp _block_changed
 	_not_slot_5:
+	
+	push dword[ebp+8]
+	call recalculateHeldBlockRenderable
+	add esp, 4
+	
+	_block_changed:
+	mov esp, ebp
+	pop ebp
+	ret
+	
+recalculateHeldBlockRenderable:		;void recalculateHeldBlockRenderable(player* player)
+	push ebp
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4		;renderable*
+	sub esp, 4		;block colours
+	sub esp, 4		;renderable colours
+	
+	mov eax, dword[ebp+12]
+	mov eax, dword[eax+16]
+	mov dword[ebp-4], eax
+	
+	mov eax, dword[ebp+12]
+	mov eax, dword[eax+12]
+	mov eax, dword[4*eax+INVENTORY]
+	mov eax, dword[4*eax+BLOCK_COLOUR_INDEX]
+	mov dword[ebp-8], eax
+	
+	mov eax, dword[ebp-4]
+	mov eax, dword[eax+44]
+	mov dword[ebp-12], eax
+	
+	mov eax, dword[ebp-8]
+	mov ecx, dword[ebp-12]
+	mov ebx, 6
+	_recalculate_colours_loop_start:
+		mov edx, dword[eax]
+		mov dword[ecx], edx
+		mov dword[ecx+4], edx
+	
+		add eax, 4
+		add ecx, 8
+		dec ebx
+		test ebx, ebx
+		jne _recalculate_colours_loop_start
+	
+	mov esp, ebp
+	pop ebx
+	pop ebp
+	ret
+	
+player_render:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 64		;projection matrix
+	
+	lea eax, [ebp-64]
+	push eax
+	push dword[ebp+20]
+	call camera_projection
+	add esp, 8
+	
+	lea ecx, [ebp-64]
+	mov eax, dword[ebp+8]
+	push dword[ebp+20]
+	push ecx
+	push dword[ebp+12]
+	push dword[eax+16]
+	call renderable_render
+	add esp, 16
 	
 	mov esp, ebp
 	pop ebp
