@@ -5,6 +5,7 @@
 ;	chomkManager* cm;
 ;	int selectedInventorySlot;
 ;	Renderable* heldBlock;
+;	Renderable* raycastKnob;
 ;}
 
 INVENTORY_SLOT_COUNT equ 5
@@ -17,6 +18,12 @@ section .rodata
 	
 	print_block_info db "chomkX: %d, chomkZ: %d, blockX: %d, blockY: %d, blockZ: %d",10,0
 	print_four_ints_format db "%d %d %d %d",10,0
+	
+	status_text_1_format db "PLAYER POS: %.1f, %.1f, %.1f",0 
+	status_text_2_format db "VIEW DIR: %.1f, %.1f",0
+	status_text_3_format db "LOADED CHOMKS: %d",0
+	
+	status_text_5_format db "HELD BLOCK:",10
 	
 	
 	HORIZONTAL_LOOK_SENSITIVITY dd 120.0
@@ -35,6 +42,7 @@ section .rodata
 	ONE dd 1.0
 	HALF dd 0.5
 	MINUS_HALF dd -0.5
+	FIFTY dd 50.0
 	
 	MAX_PITCH dd 89.5
 	MIN_PITCH dd -89.5
@@ -50,17 +58,21 @@ section .rodata
 	
 	RAYCAST_KNOB_UNUSED_POSITION dd 0.0, 1000000.0, 0.0
 	
-	INVENTORY dd BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_GRASS, BLOCK_DIRT
+	INVENTORY dd BLOCK_CHERRY_LOG, BLOCK_CHERRY_LEAVES, BLOCK_STONE, BLOCK_SUS, BLOCK_SUS2
 	
 	HELD_BLOCK_POS dd 0.2, -0.2, -0.2
 	HELD_BLOCK_SCALE dd 0.1
 	HELD_BLOCK_Y_ROT dd 15.0
+	
+	RAYCAST_KNOB_SCALE dd 0.1
 
 section .text
 	extern printf
 	extern malloc
 	extern free
 	extern memcpy
+	extern sprintf
+	
 	extern input_isKeyHeld
 	extern input_isKeyPressed
 	extern camera_forward
@@ -96,12 +108,26 @@ section .text
 	extern KEY_C
 	extern KEY_Q
 	extern KEY_E
+	extern KEY_R
 	extern KEY_SPACE
 	extern KEY_SHIFT
 	extern KEY_LEFT
 	extern KEY_RIGHT
 	extern KEY_UP
 	extern KEY_DOWN
+	
+	extern textRenderer_renderText
+	extern textRenderer_setColour
+	extern textRenderer_getTextWidth
+	extern TEXT_ALIGN_TOP_LEFT
+	extern TEXT_ALIGN_TOP_CENTER
+	extern TEXT_ALIGN_TOP_RIGHT
+	extern TEXT_ALIGN_CENTER_LEFT
+	extern TEXT_ALIGN_CENTER_CENTER
+	extern TEXT_ALIGN_CENTER_RIGHT
+	extern TEXT_ALIGN_BOTTOM_LEFT
+	extern TEXT_ALIGN_BOTTOM_CENTER
+	extern TEXT_ALIGN_BOTTOM_RIGHT
 	
 	extern COLLISION_POS_X
 	extern COLLISION_NEG_X
@@ -112,15 +138,18 @@ section .text
 	
 	extern BLOCK_COLLIDER
 	extern BLOCK_COLOUR_INDEX
+	extern BLOCK_NAME_INDEX
 	extern BLOCK_AIR
 	extern BLOCK_GRASS
 	extern BLOCK_DIRT
 	extern BLOCK_STONE
-	
-	extern raycast_knob
+	extern BLOCK_CHERRY_LOG
+	extern BLOCK_CHERRY_LEAVES
+	extern BLOCK_SUS
+	extern BLOCK_SUS2
 	
 	global player_init		;player* player_init(Camera* cum, chomkManager* cm)
-	global player_destroy		;void player_destroy()
+	global player_destroy		;void player_destroy(player* player)
 	
 	global player_update		;void player_update(player* player, float deltaTimeInSex)
 	global player_render		;void player_render(player* player, ScreenInfo* window, mat4* pv, camera* cum)
@@ -132,7 +161,7 @@ player_init:
 	
 	sub esp, 4		;player
 	
-	push 16
+	push 24
 	call malloc
 	mov dword[ebp-4], eax
 	add esp, 4
@@ -209,6 +238,23 @@ _init_no_error:
 	push dword[ebp-4]
 	call recalculateHeldBlockRenderable
 	add esp, 4
+
+	
+	;create raycast knob
+	push 84
+	call malloc
+	add esp, 4
+	
+	mov ecx, dword[ebp-4]
+	mov dword[ecx+20], eax
+	push eax
+	call renderable_createKuba
+	pop eax
+	
+	mov ecx, dword[RAYCAST_KNOB_SCALE]
+	mov dword[eax+72], ecx
+	mov dword[eax+76], ecx
+	mov dword[eax+80], ecx
 	
 	
 	mov eax, dword[ebp-4]
@@ -230,6 +276,12 @@ player_destroy:
 	
 	mov eax, dword[ebp+8]
 	push dword[eax+16]
+	call renderable_destroy
+	call free
+	add esp, 4
+	
+	mov eax, dword[ebp+8]
+	push dword[eax+20]
 	call renderable_destroy
 	call free
 	add esp, 4
@@ -280,6 +332,23 @@ player_update:
 	push dword[ebp+8]
 	call gaycast
 	add esp, 4
+	
+	;respawn
+	push KEY_R
+	call input_isKeyPressed
+	add esp, 4
+	test eax, eax
+	je _update_no_respawn
+		mov eax, dword[ebp+8]
+		mov eax, dword[eax+4]
+		mov ecx, dword[FIFTY]
+		mov dword[eax+24], 0
+		mov dword[eax+28], ecx
+		mov dword[eax+32], 0
+		mov dword[eax+36], 0
+		mov dword[eax+40], 0
+		mov dword[eax+44], 0
+	_update_no_respawn:
 	
 	mov esp, ebp
 	pop ebp
@@ -601,7 +670,8 @@ gaycast:	;void gaycast(player* player)
 	
 	_gaycast_hit:
 		;move raycast knob
-		mov eax, raycast_knob
+		mov eax, dword[ebp+8]
+		mov eax, dword[eax+20]
 		add eax, 48
 		mov ecx, dword[ebp-16]
 		add ecx, 24
@@ -849,7 +919,8 @@ gaycast:	;void gaycast(player* player)
 		
 	_gaycast_no_hit:
 		;move raycast knob
-		mov eax, raycast_knob
+		mov eax, dword[ebp+8]
+		mov eax, dword[eax+20]
 		add eax, 48
 		push 12
 		push RAYCAST_KNOB_UNUSED_POSITION
@@ -988,6 +1059,15 @@ player_render:
 	call renderable_render
 	add esp, 16
 	
+
+	mov eax, dword[ebp+8]
+	push dword[ebp+20]
+	push dword[ebp+16]
+	push dword[ebp+12]
+	push dword[eax+20]
+	call renderable_render
+	add esp, 16
+	
 	mov esp, ebp
 	pop ebp
 	ret
@@ -1000,6 +1080,115 @@ player_printUI:
 	push edi
 	mov ebp, esp
 	
+	sub esp, 200		;char array
+	mov eax, esp
+	push eax		;address of the array
+	
+	
+	push 0xFFFFFA00
+	call textRenderer_setColour
+	add esp, 4
+
+	
+	;show player position
+	mov eax, dword[ebp+20]
+	mov eax, dword[eax+4]		;collider
+	sub esp, 24
+	fld dword[eax+24]
+	fstp qword[esp]
+	fld dword[eax+28]
+	fstp qword[esp+8]
+	fld dword[eax+32]
+	fstp qword[esp+16]
+	push status_text_1_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 32
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 40
+	push 15
+	push dword[ebp+24]
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
+	
+	
+	;show player view direction
+	mov eax, dword[ebp+20]
+	mov eax, dword[eax]		;camera
+	sub esp, 16
+	fld dword[eax+16]
+	fstp qword[esp]
+	fld dword[eax+12]
+	fstp qword[esp+8]
+	push status_text_2_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 24
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 65
+	push 15
+	push dword[ebp+24]
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
+	
+	
+	;show loaded chomks
+	mov eax, dword[ebp+20]
+	mov eax, dword[eax+8]
+	mov eax, dword[eax]		;chomk count
+	push eax
+	push status_text_3_format
+	push dword[ebp-204]
+	call sprintf
+	add esp, 12
+	
+	push TEXT_ALIGN_TOP_LEFT
+	push 90
+	push 15
+	push dword[ebp+24]
+	push dword[ebp-204]
+	call textRenderer_renderText
+	add esp, 20
+	
+	;show held block
+	push TEXT_ALIGN_BOTTOM_LEFT
+	push 15
+	push 15
+	push dword[ebp+24]
+	push status_text_5_format
+	call textRenderer_renderText
+	add esp, 20
+	
+	push status_text_5_format
+	call textRenderer_getTextWidth
+	mov edx, eax
+	add edx, 15		;xpos in edx
+	add esp, 4
+	
+	mov eax, dword[ebp+20]
+	mov eax, dword[eax+12]
+	mov eax, dword[4*eax+INVENTORY]
+	mov ecx, dword[4*eax+BLOCK_COLOUR_INDEX]
+	mov ecx, dword[ecx]				;block colour in ecx
+	mov eax, dword[4*eax+BLOCK_NAME_INDEX]		;block name in eax
+	
+	push eax		;save eax
+	push ecx
+	call textRenderer_setColour
+	add esp, 4
+	pop eax			;restore eax
+	
+	push TEXT_ALIGN_BOTTOM_LEFT
+	push 15
+	push edx
+	push dword[ebp+24]
+	push eax
+	call textRenderer_renderText
+	add esp, 20
 	
 	push dword[ebp+24]
 	push dword[ebp+20]

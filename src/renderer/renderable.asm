@@ -40,12 +40,12 @@ cube_vertices:
 	dd 0.5, -0.5, 0.5
 	
 cube_indices:
+	dd 2,1,6, 1,5,6
+	dd 1,0,5, 0,4,5
+	dd 0,3,4, 3,7,4
+	dd 3,2,7, 2,6,7
 	dd 0,1,2, 0,2,3
 	dd 4,6,5, 4,7,6
-	dd 0,3,4, 3,7,4
-	dd 1,0,5, 0,4,5
-	dd 2,1,6, 1,5,6
-	dd 3,2,7, 2,6,7
 	
 cube_colours:
 	dd 0xFFFFFFFF, 0xFFFFFFFF

@@ -504,103 +504,103 @@ mat4_inverse:
 	
 	;eliminate the lower half
 	xor edi, edi		;line to mog by
-_inverse_lower_outer_loop_start:
-	mov eax, edi
-	imul eax, 32
-	add eax, ebx		;points to the mogger line
-	
-	movss xmm0, dword[eax+4*edi]	;current element in the hauptdiagonale in xmm0
+	_inverse_lower_outer_loop_start:
+		mov eax, edi
+		imul eax, 32
+		add eax, ebx		;points to the mogger line
+		
+		movss xmm0, dword[eax+4*edi]	;current element in the hauptdiagonale in xmm0
 
-	lea esi, [edi+1]	;moggable line index
-	lea ecx, [eax+32]	;moggable line address
-_inverse_lower_inner_loop_start:
-	;calculate scale factor
-	movss xmm1, dword[ecx+4*edi]
-	divss xmm1, xmm0
-	movss xmm2, xmm1
-	shufps xmm1, xmm2, 0	;xmm1 is filled with the scale factor
-	
-	movaps xmm2, [ecx]
-	movaps xmm3, [eax]
-	mulps xmm3, xmm1
-	subps xmm2, xmm3
-	movaps [ecx], xmm2
-	
-	movaps xmm2, [ecx+16]
-	movaps xmm3, [eax+16]
-	mulps xmm3, xmm1
-	subps xmm2, xmm3
-	movaps [ecx+16], xmm2
-	
-	add ecx, 32
-	inc esi
-	cmp esi, 4
-	jl _inverse_lower_inner_loop_start
-	
-	inc edi
-	cmp edi, 3
-	jl _inverse_lower_outer_loop_start
+		lea esi, [edi+1]	;moggable line index
+		lea ecx, [eax+32]	;moggable line address
+		_inverse_lower_inner_loop_start:
+			;calculate scale factor
+			movss xmm1, dword[ecx+4*edi]
+			divss xmm1, xmm0
+			movss xmm2, xmm1
+			shufps xmm1, xmm2, 0	;xmm1 is filled with the scale factor
+			
+			movaps xmm2, [ecx]
+			movaps xmm3, [eax]
+			mulps xmm3, xmm1
+			subps xmm2, xmm3
+			movaps [ecx], xmm2
+			
+			movaps xmm2, [ecx+16]
+			movaps xmm3, [eax+16]
+			mulps xmm3, xmm1
+			subps xmm2, xmm3
+			movaps [ecx+16], xmm2
+			
+			add ecx, 32
+			inc esi
+			cmp esi, 4
+			jl _inverse_lower_inner_loop_start
+		
+		inc edi
+		cmp edi, 3
+		jl _inverse_lower_outer_loop_start
 	
 	
 	;normalize lines
 	xor edi, edi
 	mov eax, ebx		;gigamatrix in eax
-_inverse_normalize_loop_start:
-	movss xmm0, dword[one]
-	movss xmm1, dword[eax+4*edi]
-	divss xmm0, xmm1
-	movss xmm1, xmm0
-	shufps xmm0, xmm1, 0	;xmm0 is filled with the scalefactor
-	
-	movaps xmm1, [eax]
-	mulps xmm1, xmm0
-	movaps [eax], xmm1
-	
-	movaps xmm1, [eax+16]
-	mulps xmm1, xmm0
-	movaps [eax+16], xmm1
-	
-	add eax, 32
-	inc edi
-	cmp edi, 4
-	jl _inverse_normalize_loop_start
+	_inverse_normalize_loop_start:
+		movss xmm0, dword[one]
+		movss xmm1, dword[eax+4*edi]
+		divss xmm0, xmm1
+		movss xmm1, xmm0
+		shufps xmm0, xmm1, 0	;xmm0 is filled with the scalefactor
+		
+		movaps xmm1, [eax]
+		mulps xmm1, xmm0
+		movaps [eax], xmm1
+		
+		movaps xmm1, [eax+16]
+		mulps xmm1, xmm0
+		movaps [eax+16], xmm1
+		
+		add eax, 32
+		inc edi
+		cmp edi, 4
+		jl _inverse_normalize_loop_start
 
 	
 	;eliminate the upper half
 	mov edi, 3		;line to mog by
-_inverse_upper_outer_loop_start:
-	mov eax, edi
-	imul eax, 32
-	add eax, ebx		;points to the mogger line
+	_inverse_upper_outer_loop_start:
+		mov eax, edi
+		imul eax, 32
+		add eax, ebx		;points to the mogger line
 
-	lea esi, [edi-1]	;moggable line index
-	lea ecx, [eax-32]	;moggable line address
-_inverse_upper_inner_loop_start:
-	;calculate scale factor
-	movss xmm1, dword[ecx+4*edi]
-	movss xmm2, xmm1
-	shufps xmm1, xmm2, 0	;xmm1 is filled with the scale factor
-	
-	movaps xmm2, [ecx]
-	movaps xmm3, [eax]
-	mulps xmm3, xmm1
-	subps xmm2, xmm3
-	movaps [ecx], xmm2
-	
-	movaps xmm2, [ecx+16]
-	movaps xmm3, [eax+16]
-	mulps xmm3, xmm1
-	subps xmm2, xmm3
-	movaps [ecx+16], xmm2
-	
-	sub ecx, 32
-	dec esi
-	cmp esi, 0
-	jge _inverse_upper_inner_loop_start
-	
-	dec edi
-	cmp edi, 0
-	jg _inverse_upper_outer_loop_start
+		lea esi, [edi-1]	;moggable line index
+		lea ecx, [eax-32]	;moggable line address
+		_inverse_upper_inner_loop_start:
+			;calculate scale factor
+			movss xmm1, dword[ecx+4*edi]
+			movss xmm2, xmm1
+			shufps xmm1, xmm2, 0	;xmm1 is filled with the scale factor
+			
+			movaps xmm2, [ecx]
+			movaps xmm3, [eax]
+			mulps xmm3, xmm1
+			subps xmm2, xmm3
+			movaps [ecx], xmm2
+			
+			movaps xmm2, [ecx+16]
+			movaps xmm3, [eax+16]
+			mulps xmm3, xmm1
+			subps xmm2, xmm3
+			movaps [ecx+16], xmm2
+			
+			sub ecx, 32
+			dec esi
+			cmp esi, 0
+			jge _inverse_upper_inner_loop_start
+		
+		dec edi
+		cmp edi, 0
+		jg _inverse_upper_outer_loop_start
 	
 	
 	;copy back the rizzults

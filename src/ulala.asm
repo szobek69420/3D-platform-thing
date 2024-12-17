@@ -9,14 +9,9 @@ section .rodata
 	print_frame_count db "FPS: %d",10,0
 	
 	
-	RAYCAST_KNOB_SCALE dd 0.1, 0.1, 0.1
-	
 	test_text db "TEST TEXT",0
 	test_text2 db "NIGGA",0
 	
-	status_text_1_format db "PLAYER POS: %.1f, %.1f, %.1f",0 
-	status_text_2_format db "VIEW DIR: %.1f, %.1f",0
-	status_text_3_format db "LOADED CHOMKS: %d",0
 	status_text_4_format db "FPS: %d",0
 	
 section .bss
@@ -30,8 +25,6 @@ section .bss
 	lastFrame resb 4		;clock_t
 	frameHelper resb 4		;clock_t
 	deltaTime resb 4		;float
-	
-	raycast_knob resb 84		;renderable
 	
 	
 section .data
@@ -55,6 +48,7 @@ section .text
 	extern WindowResizeEvent
 
 	extern player_init
+	extern player_destroy
 	extern player_update
 	extern player_render
 	extern player_printUI
@@ -90,6 +84,7 @@ section .text
 	extern chomk_renderChomk
 	
 	extern chomkManager_create
+	extern chomkManager_destroy
 	extern chomkManager_generate
 	extern chomkManager_render
 	
@@ -152,17 +147,6 @@ _start:
 	call physics_registerDynamicCollider
 	add esp, 4
 	
-	;create raycast knob
-	push raycast_knob
-	call renderable_createKuba
-	add esp, 4
-	mov eax, raycast_knob
-	add eax, 72
-	push 12
-	push RAYCAST_KNOB_SCALE
-	push eax
-	call memcpy
-	add esp, 12
 	
 	call clock
 	mov dword[lastFrame], eax
@@ -250,15 +234,6 @@ _start:
 		call camera_viewProjection
 		add esp, 8
 		
-		;render raycast knob
-		mov eax, dword[pplayer]
-		push dword[eax]
-		push pv_matrix
-		push window
-		push raycast_knob
-		call renderable_render
-		add esp, 12
-		
 		;render chomks
 		mov eax, dword[pplayer]
 		push dword[eax]
@@ -291,10 +266,15 @@ _start:
 		add esp, 4
 		
 		jmp _game_loop
+		
+	;destroy player
+	push dword[pplayer]
+	call player_destroy
+	add esp, 4
 	
-	;delete raycast knob
-	push raycast_knob
-	call renderable_destroy
+	;destroy chomkmanager
+	push dword[pchomk_manager]
+	call chomkManager_destroy
 	add esp, 4
 	
 	;deinit physics
@@ -317,6 +297,7 @@ renderText:		;void renderText(void)
 	sub esp, 200		;char array
 	mov eax, esp
 	push eax		;address of the array
+	
 	
 	push 0xFFFFFFFF
 	call textRenderer_setColour
@@ -342,6 +323,7 @@ renderText:		;void renderText(void)
 	call textRenderer_renderText
 	add esp, 20
 	
+	
 	push 0xFFFFFA00
 	call textRenderer_setColour
 	add esp, 4
@@ -361,66 +343,6 @@ renderText:		;void renderText(void)
 	call textRenderer_renderText
 	add esp, 20
 	
-	;show player position
-	mov eax, dword[pplayer]
-	mov eax, dword[eax+4]		;collider
-	sub esp, 24
-	fld dword[eax+24]
-	fstp qword[esp]
-	fld dword[eax+28]
-	fstp qword[esp+8]
-	fld dword[eax+32]
-	fstp qword[esp+16]
-	push status_text_1_format
-	push dword[ebp-204]
-	call sprintf
-	add esp, 32
-	
-	push TEXT_ALIGN_TOP_LEFT
-	push 40
-	push 15
-	push window
-	push dword[ebp-204]
-	call textRenderer_renderText
-	add esp, 20
-	
-	;show player view direction
-	mov eax, dword[pplayer]
-	mov eax, dword[eax]		;camera
-	sub esp, 16
-	fld dword[eax+16]
-	fstp qword[esp]
-	fld dword[eax+12]
-	fstp qword[esp+8]
-	push status_text_2_format
-	push dword[ebp-204]
-	call sprintf
-	add esp, 24
-	
-	push TEXT_ALIGN_TOP_LEFT
-	push 65
-	push 15
-	push window
-	push dword[ebp-204]
-	call textRenderer_renderText
-	add esp, 20
-	
-	;show loaded chomks
-	mov eax, dword[pchomk_manager]
-	mov eax, dword[eax]		;chomk count
-	push eax
-	push status_text_3_format
-	push dword[ebp-204]
-	call sprintf
-	add esp, 12
-	
-	push TEXT_ALIGN_TOP_LEFT
-	push 90
-	push 15
-	push window
-	push dword[ebp-204]
-	call textRenderer_renderText
-	add esp, 20
 	
 	;draw player ui
 	push window
