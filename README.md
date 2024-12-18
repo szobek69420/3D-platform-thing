@@ -9,14 +9,14 @@ You only need to have a 32-bit libX11 installed on your system to run this ~~mon
 <br>
 ## How to run it
 Once you cloned the repo, you need to install the dependencies by typing:<br>
-  cd src<br>
-  make install<br>
+&nbsp;&nbsp;cd src<br>
+&nbsp;&nbsp;make install<br>
 <br>
 And now you need to build the project like this (we're still in the src directory):<br>
-  make amogus<br>
+&nbsp;&nbsp;make amogus<br>
 <br>
 The program is now built and can be found in the src/build folder. Alternatively you can run it by typing the following:<br>
-  ./build/program<br>
+&nbsp;&nbsp;./build/program<br>
 <br>
 ## Controls
 Move around - WASD<br>
