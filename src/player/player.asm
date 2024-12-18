@@ -1106,7 +1106,7 @@ player_printUI:
 	add esp, 32
 	
 	push TEXT_ALIGN_TOP_LEFT
-	push 40
+	push 15
 	push 15
 	push dword[ebp+24]
 	push dword[ebp-204]
@@ -1128,7 +1128,7 @@ player_printUI:
 	add esp, 24
 	
 	push TEXT_ALIGN_TOP_LEFT
-	push 65
+	push 40
 	push 15
 	push dword[ebp+24]
 	push dword[ebp-204]
@@ -1147,7 +1147,7 @@ player_printUI:
 	add esp, 12
 	
 	push TEXT_ALIGN_TOP_LEFT
-	push 90
+	push 65
 	push 15
 	push dword[ebp+24]
 	push dword[ebp-204]

@@ -329,9 +329,31 @@ window_destroy:
 	push ebp
 	mov ebp, esp
 	
+	;free draw buffer
+	mov eax, dword[ebp+8]	;window in eax
+	push dword[eax+28]
+	call free
+	add esp, 4
+	
+	;free scale buffer
+	mov eax, dword[ebp+8]	;window in eax
+	push dword[eax+36]
+	call XDestroyImage
+	add esp, 4
+	
+	;free line and column offsets
+	mov eax, dword[ebp+8]	;window in eax
+	push dword[eax+52]
+	push dword[eax+56]
+	call free
+	add esp, 4
+	call free
+	add esp, 4
+	
+	;clean up x11 things
 	mov eax, dword[ebp+8]	;window in eax
 	
-	push dword[eax+8]
+	push dword[eax+4]
 	push dword[eax]
 	call XUnmapWindow
 	call XDestroyWindow

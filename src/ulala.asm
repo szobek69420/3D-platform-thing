@@ -8,11 +8,16 @@ section .rodata
 	print_float_format db "%.3f",10,0
 	print_frame_count db "FPS: %d",10,0
 	
-	
-	test_text db "TEST TEXT",0
-	test_text2 db "NIGGA",0
-	
 	status_text_4_format db "FPS: %d",0
+	
+	welcome_text db "Hello there, my friend! Thanks for coming by!",10,
+	db "To make it easier to enjoy this abomination, I'll give you a quick tutorial:",10,10,
+	db "You can move around with WASD",10
+	db "To look around, use the arrow keys (sorry, my VM just wouldn't let me use the mouse for that :( )",10
+	db "Blocks can be broken with 'Q' and placed with 'E'",10,
+	db "You can change the selected hotbar slots with the 1-5 keys",10,
+	db "To zoom, just press 'C' (I know, how dare Optifine copy me)",10,10
+	db "Oh and if you happened to fall out of the world, you can teleport back with 'R'",10,0
 	
 section .bss
 	window resb 60
@@ -39,6 +44,7 @@ section .text
 	extern sprintf
 
 	extern window_create
+	extern window_destroy
 	extern window_pendingEvent
 	extern window_consumeEvent
 	extern window_clearDrawBuffer
@@ -57,9 +63,11 @@ section .text
 	extern camera_viewProjection
 	extern camera_view
 	
+	extern KEY_ESCAPE
 	extern input_init
 	extern input_update
 	extern input_processEvent
+	extern input_isKeyReleased
 	
 	extern renderable_render
 	extern renderable_createKuba
@@ -79,6 +87,7 @@ section .text
 	extern physics_step
 	extern physics_registerDynamicCollider
 	extern physics_registerColliderGroup
+	extern physics_removeDynamicCollider
 	
 	extern chomk_generateChomk
 	extern chomk_renderChomk
@@ -90,16 +99,7 @@ section .text
 	
 	extern textRenderer_renderText
 	extern textRenderer_setColour
-	extern TEXT_ALIGN_TOP_LEFT
-	extern TEXT_ALIGN_TOP_CENTER
 	extern TEXT_ALIGN_TOP_RIGHT
-	extern TEXT_ALIGN_CENTER_LEFT
-	extern TEXT_ALIGN_CENTER_CENTER
-	extern TEXT_ALIGN_CENTER_RIGHT
-	extern TEXT_ALIGN_BOTTOM_LEFT
-	extern TEXT_ALIGN_BOTTOM_CENTER
-	extern TEXT_ALIGN_BOTTOM_RIGHT
-	
 	
 	global raycast_knob
 	
@@ -147,6 +147,11 @@ _start:
 	call physics_registerDynamicCollider
 	add esp, 4
 	
+	;welcome player
+	push welcome_text
+	call printf
+	add esp, 4
+	
 	
 	call clock
 	mov dword[lastFrame], eax
@@ -173,10 +178,6 @@ _start:
 		jb _skip_fps_print
 			mov eax, dword[frameCount]
 			mov dword[fps], eax
-			push dword[frameCount]
-			push print_frame_count
-			call printf
-			add esp, 8
 			mov dword[frameCount], 0
 			mov dword[lastSecond], 0
 		_skip_fps_print:
@@ -265,7 +266,18 @@ _start:
 		call window_showFrame
 		add esp, 4
 		
-		jmp _game_loop
+		;check for exit
+		push KEY_ESCAPE
+		call input_isKeyReleased
+		add esp, 4
+		test eax, eax
+		je _game_loop
+		
+	;remove player from physics
+	mov eax, dword[pplayer]
+	push dword[eax+4]
+	call physics_removeDynamicCollider
+	add esp, 4
 		
 	;destroy player
 	push dword[pplayer]
@@ -279,6 +291,12 @@ _start:
 	
 	;deinit physics
 	call physics_deinit
+	
+	;delete window
+	push window
+	call window_destroy
+	add esp, 4
+	
 	
 	;call exit()
 _game_exit:
@@ -299,31 +317,6 @@ renderText:		;void renderText(void)
 	push eax		;address of the array
 	
 	
-	push 0xFFFFFFFF
-	call textRenderer_setColour
-	add esp, 4
-	
-	push TEXT_ALIGN_TOP_RIGHT
-	push 15
-	push 15
-	push window
-	push test_text
-	call textRenderer_renderText
-	add esp, 20
-	
-	push 0xFF000000
-	call textRenderer_setColour
-	add esp, 4
-	
-	push TEXT_ALIGN_TOP_RIGHT
-	push 40
-	push 15
-	push window
-	push test_text2
-	call textRenderer_renderText
-	add esp, 20
-	
-	
 	push 0xFFFFFA00
 	call textRenderer_setColour
 	add esp, 4
@@ -335,7 +328,7 @@ renderText:		;void renderText(void)
 	call sprintf
 	add esp, 12
 	
-	push TEXT_ALIGN_TOP_LEFT
+	push TEXT_ALIGN_TOP_RIGHT
 	push 15
 	push 15
 	push window
@@ -392,6 +385,19 @@ onWindowResize:		;void onWindowResize(void)
 	push ebp
 	mov ebp, esp
 	
+	;check if the window is actually resized (not just moved)
+	mov eax, event_buffer
+	mov ecx, window
+	mov edx, dword[eax+4]
+	cmp edx, dword[ecx+40]
+	jne _onWindowResize_resize
+	mov edx, dword[eax+8]
+	cmp edx, dword[ecx+44]
+	jne _onWindowResize_resize
+	jmp _onWindowResize_done
+	
+	
+	_onWindowResize_resize:
 	;calculate aspect ratio
 	mov eax, event_buffer
 	mov ecx, camera
@@ -403,16 +409,16 @@ onWindowResize:		;void onWindowResize(void)
 	;update window
 	mov eax, event_buffer
 	mov ecx, window
-	mov edx, dword[event_buffer+4]
+	mov edx, dword[eax+4]
 	mov dword[ecx+40], edx
-	mov edx, dword[event_buffer+8]
+	mov edx, dword[eax+8]
 	mov dword[ecx+44], edx
 	
 	push window
 	call window_onResize
 	add esp, 4
 	
-	
+	_onWindowResize_done:
 	mov esp, ebp
 	pop ebp
 	ret

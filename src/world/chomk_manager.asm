@@ -44,8 +44,6 @@ section .text
 	extern chomk_generateChomk
 	extern chomk_destroyChomk
 	
-	extern colliderGroup_printInfo
-	
 	extern physics_registerColliderGroup
 	extern physics_removeColliderGroup
 	
@@ -237,7 +235,6 @@ chomkManager_addChomk:
 	mov eax, dword[ebp-4]
 	push dword[eax+16]
 	call physics_registerColliderGroup
-	call colliderGroup_printInfo
 	add esp, 4
 	
 	_addChomk_done:
@@ -410,7 +407,7 @@ chomkManager_generate:
 			cmp eax, 0
 			jne _generate_load_neg_z_loaded
 				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
+				;call chomkManager_printLoadedChomks
 				add esp, 20
 				jmp _generate_load_radius_loop_done
 			_generate_load_neg_z_loaded:
@@ -441,7 +438,7 @@ chomkManager_generate:
 			cmp eax, 0
 			jne _generate_load_neg_x_loaded
 				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
+				;call chomkManager_printLoadedChomks
 				add esp, 20
 				jmp _generate_load_radius_loop_done
 			_generate_load_neg_x_loaded:
@@ -471,7 +468,7 @@ chomkManager_generate:
 			cmp eax, 0
 			jne _generate_load_pos_z_loaded
 				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
+				;call chomkManager_printLoadedChomks
 				add esp, 20
 				jmp _generate_load_radius_loop_done
 			_generate_load_pos_z_loaded:
@@ -501,7 +498,7 @@ chomkManager_generate:
 			cmp eax, 0
 			jne _generate_load_pos_x_loaded
 				call chomkManager_addChomk
-				call chomkManager_printLoadedChomks
+				;call chomkManager_printLoadedChomks
 				add esp, 20
 				jmp _generate_load_radius_loop_done
 			_generate_load_pos_x_loaded:
@@ -576,7 +573,7 @@ chomkManager_generate:
 	ret
 	
 	
-chomkManager_printLoadedChomks:
+;chomkManager_printLoadedChomks:
 	mov eax, dword[esp+4]
 	push dword[eax]
 	push print_loaded_chomk_count
