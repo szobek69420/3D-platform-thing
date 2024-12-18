@@ -17,7 +17,8 @@ section .rodata
 	db "Blocks can be broken with 'Q' and placed with 'E'",10,
 	db "You can change the selected hotbar slots with the 1-5 keys",10,
 	db "To zoom, just press 'C' (I know, how dare Optifine copy me)",10,10
-	db "Oh and if you happened to fall out of the world, you can teleport back with 'R'",10,0
+	db "Oh and if you happened to fall out of the world, you can teleport back with 'R'",10
+	db "When you (inevitably) feel overwhelmed by the beauty of the game, you can exit by pressing Escape",10,0
 	
 section .bss
 	window resb 60
